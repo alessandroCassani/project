@@ -1,11 +1,10 @@
 import React from "react";
 import { NoWalletDetected } from "./NoWalletDetected";
 import { ConnectWallet } from "./ConnectWallet";
-import LoanRequest from '../Functions/LoanRequest';
-import LoanApproval from '../Functions/LoanApproval';
-import LoanRepayment from '../Functions/LoanRepayment';
+import { App as LenderInterface } from "./Lender";
+import { App as BorrowerInterface } from "./Borrower"
 
-import { Container, Row, Col, Card, Button, Alert, Nav, Navbar } from 'react-bootstrap';
+import { Container, Card, Button, Alert, Nav, Navbar } from 'react-bootstrap';
 
 const HARDHAT_NETWORK_ID = '31337';
 
@@ -15,8 +14,8 @@ export class Dapp extends React.Component {
 
     this.initialState = {
       selectedAddress: undefined,
-      loanRequests: [], // Inizializza loanRequests come array vuoto
-      approvedLoans: [], // Inizializza approvedLoans come array vuoto
+      loanRequests: [],
+      approvedLoans: [],
       userRole: undefined,
       networkError: undefined,
     };
@@ -39,7 +38,7 @@ export class Dapp extends React.Component {
       );
     }
 
-    const { selectedAddress, userRole, loanRequests, approvedLoans } = this.state;
+    const { selectedAddress, userRole } = this.state;
 
     return (
       <div className="dapp-wrapper">
@@ -49,11 +48,9 @@ export class Dapp extends React.Component {
             <Navbar.Toggle aria-controls="basic-navbar-nav" />
             <Navbar.Collapse id="basic-navbar-nav">
               <Nav className="me-auto">
-                <Nav.Link href="#home">Home</Nav.Link>
-                <Nav.Link href="#loans">My Loans</Nav.Link>
-                <Nav.Link href="#profile">Profile</Nav.Link>
+                <Nav.Link href="<Dapp />">Home</Nav.Link>
               </Nav>
-              <Navbar.Text>
+              <Navbar.Text className="ml-3">
                 Signed in as: <a href="#login">{selectedAddress}</a>
               </Navbar.Text>
             </Navbar.Collapse>
@@ -71,13 +68,14 @@ export class Dapp extends React.Component {
                 </Card.Text>
                 <Button 
                   variant="primary" 
-                  className="me-2"
+                  className="me-2 mr-5 ml-5"
                   onClick={() => this.setState({ userRole: 'borrower' })}
                 >
                   I'm a Borrower
                 </Button>
                 <Button 
                   variant="secondary"
+                  className="me-2 mr-5 ml-5"
                   onClick={() => this.setState({ userRole: 'lender' })}
                 >
                   I'm a Lender
@@ -91,56 +89,11 @@ export class Dapp extends React.Component {
               </Alert>
 
               {userRole === 'borrower' && (
-                <Card className="mb-4">
-                  <Card.Header as="h5">Request a Loan</Card.Header>
-                  <Card.Body>
-                    <LoanRequest 
-                      onSubmit={(loanDetails) => {
-                        this.setState(prevState => ({
-                          loanRequests: [...prevState.loanRequests, loanDetails]
-                        }));
-                      }}
-                    />
-                  </Card.Body>
-                </Card>
+                <BorrowerInterface />
               )}
 
               {userRole === 'lender' && (
-                <Row xs={1} md={2} className="g-4">
-                  {loanRequests.map((request, index) => (
-                    <Col key={index}>
-                      <LoanApproval 
-                        request={request}
-                        onApprove={(id) => {
-                          this.setState(prevState => ({
-                            approvedLoans: [...prevState.approvedLoans, request],
-                            loanRequests: prevState.loanRequests.filter((_, i) => i !== index)
-                          }));
-                        }}
-                      />
-                    </Col>
-                  ))}
-                </Row>
-              )}
-
-              {approvedLoans.length > 0 && (
-                <Card className="mt-4">
-                  <Card.Header as="h5">Approved Loans</Card.Header>
-                  <Card.Body>
-                    <Row xs={1} md={2} className="g-4">
-                      {approvedLoans.map((loan, index) => (
-                        <Col key={index}>
-                          <LoanRepayment 
-                            loan={loan}
-                            onRepay={(id, amount) => {
-                              // Repayment backend logic here
-                            }}
-                          />
-                        </Col>
-                      ))}
-                    </Row>
-                  </Card.Body>
-                </Card>
+                <LenderInterface />
               )}
             </>
           )}
