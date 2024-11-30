@@ -6,11 +6,6 @@ import "./LoanTypes.sol";
 import "./LoanStorage.sol";
 
 contract LendingPlatform is LoanStorage {
-    // Events to notify frontend
-    event RequestCreated(uint256 requestId, address borrower, uint256 amount);
-    event LoanFunded(uint256 requestId, address lender, uint256 amount);
-    event LoanRepaid(uint256 loanId);
-
     function createLoanRequest(
         uint256 _loanAmount,
         uint256 _durationInDays
@@ -28,8 +23,6 @@ contract LendingPlatform is LoanStorage {
         request.duration = _durationInDays;
         request.isActive = true;
         request.stake = msg.value;
-
-        emit RequestCreated(requestId, msg.sender, _loanAmount);
     }
 
     function fundLoanRequest(
@@ -54,8 +47,6 @@ contract LendingPlatform is LoanStorage {
         request.isActive = false;
 
         payable(request.borrower).transfer(msg.value);
-
-        emit LoanFunded(_requestId, msg.sender, msg.value);
     }
 
     // Borrower repays loan
@@ -77,8 +68,6 @@ contract LendingPlatform is LoanStorage {
 
         // Send repayment to lender
         payable(loan.lender).transfer(totalDue);
-
-        emit LoanRepaid(_loanId);
     }
 
     // Check if loan is expired and can be liquidated
