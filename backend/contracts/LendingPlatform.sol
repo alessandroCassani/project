@@ -62,25 +62,21 @@ contract LendingPlatform is LoanStorage {
 
         loan.isRepaid = true;
 
-        // Return collateral to borrower
         payable(loan.borrower).transfer(loan.stake);
-
-        // Send repayment to lender
         payable(loan.lender).transfer(totalDue);
     }
 
-    // Check if loan is expired and can be liquidated
     function checkLoanStatus(
         uint256 _loanId
     ) external view returns (string memory) {
         LoanTypes.ActiveLoan storage loan = activeLoans[_loanId];
 
         if (loan.isRepaid) {
-            return "Loan is repaid";
+            return "Loan repaid";
         } else if (block.timestamp > loan.endTime) {
-            return "Loan is expired";
+            return "Loan expired";
         } else {
-            return "Loan is active";
+            return "Loan active";
         }
     }
 
