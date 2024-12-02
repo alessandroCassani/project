@@ -17,7 +17,10 @@ async function main() {
     await deployer.getAddress()
   );
 
-  console.log("Account balance:", (await deployer.getBalance()).toString());
+  console.log("Deploying the contracts with the account:", deployer.address);
+  // Print deployer balance
+  const balance = await hre.ethers.provider.getBalance(deployer.address);
+  console.log("Account balance:", hre.ethers.formatEther(balance));
 
   const LoanTypes = await hre.ethers.getContractFactory("LoanTypes");
   const loanTypes = await LoanTypes.deploy();
