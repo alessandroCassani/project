@@ -10,10 +10,8 @@ describe("LendingPlatform", function () {
   let duration;
 
   beforeEach(async function () {
-    // Get signers
     [owner, borrower, lender] = await ethers.getSigners();
     
-    // Deploy contracts
     const LendingPlatform = await ethers.getContractFactory("LendingPlatform");
     lendingPlatform = await LendingPlatform.deploy();
     await lendingPlatform.waitForDeployment();
@@ -24,7 +22,7 @@ describe("LendingPlatform", function () {
 
   describe("Loan Requests", function () {
     it("Should create a loan request", async function () {
-      const stake = ethers.parseEther("2"); // 2 ETH collateral
+      const stake = ethers.parseEther("2");
       
       await lendingPlatform.connect(borrower).createLoanRequest(
         loanAmount,
@@ -41,7 +39,7 @@ describe("LendingPlatform", function () {
     });
 
     it("Should revert if collateral is insufficient", async function () {
-      const lowCollateral = ethers.parseEther("0.5"); // Too low collateral
+      const lowCollateral = ethers.parseEther("0.5");
       
       await expect(
         lendingPlatform.connect(borrower).createLoanRequest(
@@ -54,20 +52,18 @@ describe("LendingPlatform", function () {
   });
 
   describe("Loan Funding", function () {
-    beforeEach(async function () {
-      // Create a loan request before each test
+    it("Should fund a loan request", async function () {
+      // First create a loan request
       await lendingPlatform.connect(borrower).createLoanRequest(
         loanAmount,
         duration,
         { value: ethers.parseEther("2") }
       );
-    });
 
-    it("Should fund a loan request", async function () {
-      const interestRate = 5; // 5%
+      const interestRate = 5; 
       
       await lendingPlatform.connect(lender).fundLoanRequest(
-        0, // First loan request
+        0, 
         interestRate,
         { value: loanAmount }
       );
@@ -81,8 +77,77 @@ describe("LendingPlatform", function () {
   });
 
   describe("Loan Repayment", function () {
-    beforeEach(async function () {
-      // Create and fund a loan before each test
+    it("Should repay a loan successfully", async function () {
+      // Print initial state
+      console.log("\nInitial State:");
+      console.log("Total Requests:", await lendingPlatform.totalRequests());
+      console.log("Total Loans:", await lendingPlatform.totalLoans());
+      
+      // 1. Create request
+      await lendingPlatform.connect(borrower).createLoanRequest(
+        loanAmount,
+        duration,
+        { value: ethers.parseEther("2") }
+      );
+      
+      // Print state after request creation
+      console.log("\nAfter Request Creation:");
+      console.log("Total Requests:", await lendingPlatform.totalRequests());
+      const request = await lendingPlatform.loanRequests(0);
+      console.log("Loan Request 0:", {
+        borrower: request.borrower,
+        loanAmount: ethers.formatEther(request.loanAmount) + " ETH",
+        duration: request.duration.toString() + " days",
+        isActive: request.isActive,
+        stake: ethers.formatEther(request.stake) + " ETH"
+      });
+      
+      // 2. Fund the loan
+      await lendingPlatform.connect(lender).fundLoanRequest(
+        0,
+        5,
+        { value: loanAmount }
+      );
+      
+      // Print state after funding
+      console.log("\nAfter Funding:");
+      console.log("Total Loans:", await lendingPlatform.totalLoans());
+      const loan = await lendingPlatform.activeLoans(0);
+      console.log("Active Loan 0:", {
+        borrower: loan.borrower,
+        lender: loan.lender,
+        loanAmount: ethers.formatEther(loan.loanAmount) + " ETH",
+        stake: ethers.formatEther(loan.stake) + " ETH",
+        endTime: new Date(Number(loan.endTime) * 1000).toLocaleString(),
+        interestRate: loan.interestRate.toString() + "%",
+        isRepaid: loan.isRepaid
+      });
+      
+      // 3. Repay the loan
+      const interest = (loanAmount * BigInt(5)) / BigInt(100);
+      const repaymentAmount = loanAmount + interest;
+      await lendingPlatform.connect(borrower).repayLoan(
+        0,
+        { value: repaymentAmount }
+      );
+      
+      // Print final state
+      console.log("\nAfter Repayment:");
+      const updatedLoan = await lendingPlatform.activeLoans(0);
+      console.log("Updated Loan 0:", {
+        borrower: updatedLoan.borrower,
+        lender: updatedLoan.lender,
+        loanAmount: ethers.formatEther(updatedLoan.loanAmount) + " ETH",
+        stake: ethers.formatEther(updatedLoan.stake) + " ETH",
+        isRepaid: updatedLoan.isRepaid
+      });
+
+      expect(updatedLoan.isRepaid).to.be.true;
+    });
+  });
+
+  describe("Loan Status", function () {
+    it("Should return correct loan status", async function () {
       await lendingPlatform.connect(borrower).createLoanRequest(
         loanAmount,
         duration,
@@ -91,47 +156,17 @@ describe("LendingPlatform", function () {
 
       await lendingPlatform.connect(lender).fundLoanRequest(
         0,
-        5, // 5% interest
+        5,
         { value: loanAmount }
       );
-    });
 
-    it("Should repay a loan successfully", async function () {
-      const interest = loanAmount * 0.05;
-      const repaymentAmount = loanAmount + interest;
+      expect(await lendingPlatform.checkLoanStatus(0)).to.equal("Loan active");
+      
+      // Fast forward time
+      await network.provider.send("evm_increaseTime", [duration * 24 * 60 * 60 + 1]);
+      await network.provider.send("evm_mine");
 
-      await lendingPlatform.connect(borrower).repayLoan(
-        0,
-        { value: repaymentAmount }
-      );
-
-      const loan = await lendingPlatform.activeLoans(0);
-      expect(loan.isRepaid).to.be.true;
+      expect(await lendingPlatform.checkLoanStatus(0)).to.equal("Loan expired");
     });
   });
-
-  describe("Loan Status", function () {
-    it("Should return correct loan status", async function () {
-        // Create and fund loan
-        await lendingPlatform.connect(borrower).createLoanRequest(
-            loanAmount,
-            duration,
-            { value: ethers.parseEther("2") }
-        );
-
-        await lendingPlatform.connect(lender).fundLoanRequest(
-            0,
-            5,
-            { value: loanAmount }
-        );
-
-        expect(await lendingPlatform.checkLoanStatus(0)).to.equal("Loan active");
-        
-        // Fast forward time
-        await network.provider.send("evm_increaseTime", [duration * 24 * 60 * 60 + 1]);
-        await network.provider.send("evm_mine");
-
-        expect(await lendingPlatform.checkLoanStatus(0)).to.equal("Loan expired");
-    });
-});
 });

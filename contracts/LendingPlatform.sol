@@ -11,7 +11,7 @@ contract LendingPlatform is LoanStorage {
     ) external payable {
         require(_loanAmount > 0, "Loan amount must be greater than 0");
         require(_durationInDays > 0, "Duration must be greater than 0");
-        require(msg.value > 0, "Must send collateral");
+        require(msg.value >= _loanAmount * 2, "Insufficient collateral");
 
         // Creating new loan request
         uint256 requestId = getNextRequestId();
@@ -55,7 +55,6 @@ contract LendingPlatform is LoanStorage {
         require(msg.sender == loan.borrower, "Only borrower can repay");
         require(!loan.isRepaid, "Loan already repaid");
 
-        // Calculate total due (loan + interest)
         uint256 interest = (loan.loanAmount * loan.interestRate) / 100;
         uint256 totalDue = loan.loanAmount + interest;
         require(msg.value >= totalDue, "Must send full amount plus interest");
