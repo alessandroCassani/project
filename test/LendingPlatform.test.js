@@ -78,52 +78,22 @@ describe("LendingPlatform", function () {
 
   describe("Loan Repayment", function () {
     it("Should repay a loan successfully", async function () {
-      // Print initial state
-      console.log("\nInitial State:");
-      console.log("Total Requests:", await lendingPlatform.totalRequests());
-      console.log("Total Loans:", await lendingPlatform.totalLoans());
-      
-      // 1. Create request
+
       await lendingPlatform.connect(borrower).createLoanRequest(
         loanAmount,
         duration,
         { value: ethers.parseEther("2") }
       );
-      
-      // Print state after request creation
-      console.log("\nAfter Request Creation:");
-      console.log("Total Requests:", await lendingPlatform.totalRequests());
+
       const request = await lendingPlatform.loanRequests(0);
-      console.log("Loan Request 0:", {
-        borrower: request.borrower,
-        loanAmount: ethers.formatEther(request.loanAmount) + " ETH",
-        duration: request.duration.toString() + " days",
-        isActive: request.isActive,
-        stake: ethers.formatEther(request.stake) + " ETH"
-      });
       
-      // 2. Fund the loan
       await lendingPlatform.connect(lender).fundLoanRequest(
         0,
         5,
         { value: loanAmount }
       );
       
-      // Print state after funding
-      console.log("\nAfter Funding:");
-      console.log("Total Loans:", await lendingPlatform.totalLoans());
       const loan = await lendingPlatform.activeLoans(0);
-      console.log("Active Loan 0:", {
-        borrower: loan.borrower,
-        lender: loan.lender,
-        loanAmount: ethers.formatEther(loan.loanAmount) + " ETH",
-        stake: ethers.formatEther(loan.stake) + " ETH",
-        endTime: new Date(Number(loan.endTime) * 1000).toLocaleString(),
-        interestRate: loan.interestRate.toString() + "%",
-        isRepaid: loan.isRepaid
-      });
-      
-      // 3. Repay the loan
       const interest = (loanAmount * BigInt(5)) / BigInt(100);
       const repaymentAmount = loanAmount + interest;
       await lendingPlatform.connect(borrower).repayLoan(
@@ -131,17 +101,7 @@ describe("LendingPlatform", function () {
         { value: repaymentAmount }
       );
       
-      // Print final state
-      console.log("\nAfter Repayment:");
       const updatedLoan = await lendingPlatform.activeLoans(0);
-      console.log("Updated Loan 0:", {
-        borrower: updatedLoan.borrower,
-        lender: updatedLoan.lender,
-        loanAmount: ethers.formatEther(updatedLoan.loanAmount) + " ETH",
-        stake: ethers.formatEther(updatedLoan.stake) + " ETH",
-        isRepaid: updatedLoan.isRepaid
-      });
-
       expect(updatedLoan.isRepaid).to.be.true;
     });
   });
