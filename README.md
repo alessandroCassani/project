@@ -4,9 +4,6 @@ Inserire descrizione componenti
 
 ## Quick start
 
-install the following packages:
-hardhat@2.22.16
-
 # create package.json
 
 npm init -y
@@ -30,6 +27,12 @@ deploy your contract on a new terminal (the hardhat is running in the previous t
 
 ```sh
 npx hardhat run scripts/deploy.js --network localhost
+```
+
+# How to test the contrats with hardhat console
+
+```sh
+npx hardhat console --network localhost
 ```
 
 > Note: this example uses a custom deploy script, consider using `hardhat ignition` -
