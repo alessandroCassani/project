@@ -89,4 +89,35 @@ contract LendingPlatform is LoanStorage {
         loan.isRepaid = true;
         payable(loan.lender).transfer(loan.stake);
     }
+
+    function getBorrowerActiveLoans(
+        address _borrower
+    )
+        external
+        view
+        returns (uint256[] memory loanIds, LoanTypes.ActiveLoan[] memory loans)
+    {
+        uint256 activeCount = 0;
+        for (uint256 i = 0; i < totalLoans; i++) {
+            if (
+                activeLoans[i].borrower == _borrower && !activeLoans[i].isRepaid
+            ) {
+                activeCount++;
+            }
+        }
+
+        loanIds = new uint256[](activeCount);
+        loans = new LoanTypes.ActiveLoan[](activeCount);
+
+        uint256 arrayIndex = 0;
+        for (uint256 i = 0; i < totalLoans; i++) {
+            if (
+                activeLoans[i].borrower == _borrower && !activeLoans[i].isRepaid
+            ) {
+                loanIds[arrayIndex] = i;
+                loans[arrayIndex] = activeLoans[i];
+                arrayIndex++;
+            }
+        }
+    }
 }
