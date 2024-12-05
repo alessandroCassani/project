@@ -114,7 +114,7 @@ contract LendingPlatform is LoanStorage {
             if (
                 activeLoans[i].borrower == _borrower && !activeLoans[i].isRepaid
             ) {
-                loanIds[arrayIndex] = i;
+                loanIds[arrayIndex] = i; //the ids are sequentially assigned (see LoanStorage)
                 loans[arrayIndex] = activeLoans[i];
                 arrayIndex++;
             }
