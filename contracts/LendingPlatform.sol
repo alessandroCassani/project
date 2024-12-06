@@ -95,70 +95,75 @@ contract LendingPlatform is LoanStorage {
     )
         external
         view
-        returns (uint256[] memory loanIds, LoanTypes.ActiveLoan[] memory loans)
+        returns (uint256[] memory loanIds, LoanTypes.LoanRequest[] memory loans)
     {
         uint256 activeCount = 0;
-        for (uint256 i = 0; i < totalLoans; i++) {
-            if (
-                activeLoans[i].borrower == _borrower && !activeLoans[i].isRepaid
-            ) {
+        for (uint256 i = 0; i < totalRequests; i++) {
+            if (loanRequests[i].borrower == _borrower) {
                 activeCount++;
             }
         }
 
         loanIds = new uint256[](activeCount);
-        loans = new LoanTypes.ActiveLoan[](activeCount);
+        loans = new LoanTypes.LoanRequest[](activeCount);
 
         uint256 arrayIndex = 0;
-        for (uint256 i = 0; i < totalLoans; i++) {
-            if (
-                activeLoans[i].borrower == _borrower && !activeLoans[i].isRepaid
-            ) {
+        for (uint256 i = 0; i < totalRequests; i++) {
+            if (loanRequests[i].borrower == _borrower) {
                 loanIds[arrayIndex] = i; //the ids are sequentially assigned (see LoanStorage)
-                loans[arrayIndex] = activeLoans[i];
+                loans[arrayIndex] = loanRequests[i];
                 arrayIndex++;
             }
         }
     }
 
-    function getAllActiveLoans() external view returns (uint256[] memory loanIds, LoanTypes.ActiveLoan[] memory loans, uint256[] memory requestIds, LoanTypes.LoanRequest[] memory requests) {
-    uint256 activeCount = 0;
-    uint256 requestCount = 0;
+    function getAllActiveLoans()
+        external
+        view
+        returns (
+            uint256[] memory loanIds,
+            LoanTypes.ActiveLoan[] memory loans,
+            uint256[] memory requestIds,
+            LoanTypes.LoanRequest[] memory requests
+        )
+    {
+        uint256 activeCount = 0;
+        uint256 requestCount = 0;
 
-    // Count active loans and requests
-    for (uint256 i = 0; i < totalLoans; i++) {
-        if (!activeLoans[i].isRepaid) {
-            activeCount++;
+        // Count active loans and requests
+        for (uint256 i = 0; i < totalLoans; i++) {
+            if (!activeLoans[i].isRepaid) {
+                activeCount++;
+            }
         }
-    }
-    for (uint256 i = 0; i < totalRequests; i++) {
-        if (loanRequests[i].isActive) {
-            requestCount++;
+        for (uint256 i = 0; i < totalRequests; i++) {
+            if (loanRequests[i].isActive) {
+                requestCount++;
+            }
         }
-    }
 
-    // Initialize arrays
-    loanIds = new uint256[](activeCount);
-    loans = new LoanTypes.ActiveLoan[](activeCount);
-    requestIds = new uint256[](requestCount);
-    requests = new LoanTypes.LoanRequest[](requestCount);
+        // Initialize arrays
+        loanIds = new uint256[](activeCount);
+        loans = new LoanTypes.ActiveLoan[](activeCount);
+        requestIds = new uint256[](requestCount);
+        requests = new LoanTypes.LoanRequest[](requestCount);
 
-    // Fill arrays
-    uint256 loanIndex = 0;
-    uint256 requestIndex = 0;
-    for (uint256 i = 0; i < totalLoans; i++) {
-        if (!activeLoans[i].isRepaid) {
-            loanIds[loanIndex] = i;
-            loans[loanIndex] = activeLoans[i];
-            loanIndex++;
+        // Fill arrays
+        uint256 loanIndex = 0;
+        uint256 requestIndex = 0;
+        for (uint256 i = 0; i < totalLoans; i++) {
+            if (!activeLoans[i].isRepaid) {
+                loanIds[loanIndex] = i;
+                loans[loanIndex] = activeLoans[i];
+                loanIndex++;
+            }
+        }
+        for (uint256 i = 0; i < totalRequests; i++) {
+            if (loanRequests[i].isActive) {
+                requestIds[requestIndex] = i;
+                requests[requestIndex] = loanRequests[i];
+                requestIndex++;
+            }
         }
     }
-    for (uint256 i = 0; i < totalRequests; i++) {
-        if (loanRequests[i].isActive) {
-            requestIds[requestIndex] = i;
-            requests[requestIndex] = loanRequests[i];
-            requestIndex++;
-        }
-    }
-}
 }
