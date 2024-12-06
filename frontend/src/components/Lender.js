@@ -1,15 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Table, Card, Button, Badge, Form } from 'react-bootstrap';
+import { Container, Row, Col, Form, Button, Table, Card, Badge, Toast } from 'react-bootstrap';
 import { ethers } from 'ethers';
-
-import LendingPlatformABI from '../contracts/LendingPlatform.sol/LendingPlatform.json';
+import LendingPlatformABI from '../contracts/LendingPlatform.json';
 
 const LoanState = {
-  0: "REPAID",
-  1: "ACCEPTED",
-  2: "WAITING",
-  3: "PAID",
-  4: "FAILED",
+  REPAID: "Repaid",
+  ACTIVE: "Active",
+  EXPIRED: "Expired"
 };
 
 const App = () => {
@@ -17,137 +14,159 @@ const App = () => {
   const [balance, setBalance] = useState('');
   const [contract, setContract] = useState(null);
   const [activeLoans, setActiveLoans] = useState([]);
-  const [loanProposals, setLoanProposals] = useState([]);
-  const [loanAmount, setLoanAmount] = useState('');
-  const [loanDuration, setLoanDuration] = useState('');
+  const [formData, setFormData] = useState({
+    amount: '',
+    duration: '',
+    collateral: ''
+  });
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastVariant, setToastVariant] = useState('success');
 
   useEffect(() => {
-    connectWallet();
-    loadContract();
+    const init = async () => {
+      await connectWallet();
+      await loadContract();
+      await loadActiveLoans();
+    };
+    init();
   }, []);
 
-  useEffect(() => {
-    if (contract && account) {
-      loadActiveLoans();
-      loadLoanProposals();
+  const loadContract = async () => {
+    if (typeof window.ethereum !== 'undefined') {
+      try {
+        const provider = new ethers.providers.Web3Provider(window.ethereum);
+        const signer = provider.getSigner();
+        const contractAddress = "YOUR_CONTRACT_ADDRESS_HERE";
+        const contract = new ethers.Contract(contractAddress, LendingPlatformABI.abi, signer);
+        setContract(contract);
+        console.log("Contract loaded successfully");
+      } catch (error) {
+        console.error("Error loading contract:", error);
+        showToastMessage("Error loading contract", 'danger');
+      }
     }
-  }, [contract, account]);
+  };
 
   const connectWallet = async () => {
     if (typeof window.ethereum !== 'undefined') {
       try {
         const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
         setAccount(accounts[0]);
-
         const provider = new ethers.providers.Web3Provider(window.ethereum);
         const balance = await provider.getBalance(accounts[0]);
         setBalance(ethers.utils.formatEther(balance));
-
         window.ethereum.on('accountsChanged', async (accounts) => {
           setAccount(accounts[0]);
           const newBalance = await provider.getBalance(accounts[0]);
           setBalance(ethers.utils.formatEther(newBalance));
         });
+        console.log("Wallet connected successfully");
       } catch (error) {
-        console.error("Error connecting to wallet:", error);
+        console.error("Error connecting:", error);
+        showToastMessage("Error connecting to wallet", 'danger');
       }
     } else {
-      console.log('MetaMask not detected');
+      showToastMessage('Metamask not detected', 'danger');
     }
   };
 
-  const loadContract = async () => {
-    try {
+  const updateBalance = async () => {
+    if (typeof window.ethereum !== 'undefined') {
       const provider = new ethers.providers.Web3Provider(window.ethereum);
-      const signer = provider.getSigner();
-      const contractAddress = "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0";
-      const contractABI = LendingPlatformABI.abi;
-      const lendingPlatform = new ethers.Contract(contractAddress, contractABI, signer);
-      setContract(lendingPlatform);
-      console.log("Contract loaded:", lendingPlatform);
+      const newBalance = await provider.getBalance(account);
+      setBalance(ethers.utils.formatEther(newBalance));
+    }
+  };
+
+  const handleInputChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const createLoanRequest = async (e) => {
+    e.preventDefault();
+    const amountInWei = ethers.utils.parseEther(formData.amount);
+    const collateralInWei = ethers.utils.parseEther(formData.collateral);
+    const durationInDays = parseInt(formData.duration);
+
+    if (collateralInWei.lt(amountInWei.mul(2))) {
+      showToastMessage("Collateral must be at least double the loan amount", 'danger');
+      return;
+    }
+
+    try {
+      const tx = await contract.createLoanRequest(amountInWei, durationInDays, { value: collateralInWei });
+      await tx.wait();
+      showToastMessage("Loan request created successfully", 'success');
+      await updateBalance();
+      await loadActiveLoans();
     } catch (error) {
-      console.error("Error loading contract:", error);
+      console.error("Detailed error:", error);
+      if (error.code === 'ACTION_REJECTED') {
+        showToastMessage("Transaction rejected by user", 'warning');
+      } else {
+        showToastMessage("Error: " + error.message, 'danger');
+      }
     }
   };
 
   const loadActiveLoans = async () => {
     if (!contract || !account) return;
     try {
-      const loans = await contract.getActiveLoansRequest(account);
-      setActiveLoans(loans);
-    } catch (error) {
-      console.error("Loading Active Loans Error: ", error);
-    }
-  };
-
-  const loadLoanProposals = async () => {
-    if (!contract) return;
-    try {
-      const proposals = await contract.getActiveLoanRequests();
-      console.log("Proposals received:", proposals);
-      
-      const formattedProposals = proposals.map((proposal, index) => ({
-        id: index,
-        borrower: proposal.borrower,
-        loanAmount: ethers.utils.formatEther(proposal.loanAmount),
-        duration: proposal.duration.toString(),
-        stake: ethers.utils.formatEther(proposal.stake),
-        isActive: proposal.isActive
+      const [loanIds, loans] = await contract.getBorrowerActiveLoans(account);
+      const activeLoansData = loans.map((loan, index) => ({
+        loanId: loanIds[index].toString(),
+        borrower: loan.borrower,
+        lender: loan.lender,
+        loanAmount: ethers.utils.formatEther(loan.loanAmount),
+        stake: ethers.utils.formatEther(loan.stake),
+        endTime: new Date(loan.endTime.toNumber() * 1000).toLocaleString(),
+        interestRate: loan.interestRate.toString(),
+        isRepaid: loan.isRepaid,
+        state: loan.isRepaid ? LoanState.REPAID : (Date.now() > loan.endTime.toNumber() * 1000 ? LoanState.EXPIRED : LoanState.ACTIVE)
       }));
-
-      setLoanProposals(formattedProposals);
+      setActiveLoans(activeLoansData);
+      console.log("Active loans loaded successfully:", activeLoansData);
     } catch (error) {
-      console.error("Loading Loan Proposals Error: ", error);
+      console.error("Error loading active loans:", error);
+      showToastMessage("Error loading active loans", 'danger');
     }
   };
 
-  const claimRepayment = async (loanId) => {
+  const repayLoan = async (loanId) => {
     if (!contract) return;
     try {
-      const tx = await contract.liquidateExpiredLoan(loanId);
+      const loan = activeLoans.find(loan => loan.loanId === loanId);
+      const interest = ethers.utils.parseEther(loan.loanAmount).mul(loan.interestRate).div(100);
+      const totalDue = ethers.utils.parseEther(loan.loanAmount).add(interest);
+      const tx = await contract.repayLoan(loanId, { value: totalDue });
       await tx.wait();
-      loadActiveLoans();
+      showToastMessage("Loan repaid successfully", 'success');
+      await updateBalance();
+      await loadActiveLoans();
     } catch (error) {
-      console.error("Claim error: ", error);
+      console.error("Error repaying loan:", error);
+      showToastMessage("Error repaying loan", 'danger');
     }
   };
 
-  const handleLendMoney = async (proposalId, amount, interestRate) => {
-    if (!contract) return;
-    try {
-      const tx = await contract.fundLoanRequest(proposalId, interestRate, {
-        value: ethers.utils.parseEther(amount)
-      });
-      await tx.wait();
-      loadLoanProposals();
-      loadActiveLoans();
-    } catch (error) {
-      console.error("Lending error: ", error);
-    }
-  };
-
-  const createLoanRequest = async (e) => {
-    e.preventDefault();
-    if (!contract) return;
-    try {
-      const tx = await contract.createLoanRequest(
-        ethers.utils.parseEther(loanAmount),
-        loanDuration,
-        { value: ethers.utils.parseEther((parseFloat(loanAmount) * 2).toString()) }
-      );
-      await tx.wait();
-      loadLoanProposals();
-      setLoanAmount('');
-      setLoanDuration('');
-    } catch (error) {
-      console.error("Create loan request error: ", error);
-    }
+  const showToastMessage = (message, variant) => {
+    setToastMessage(message);
+    setToastVariant(variant);
+    setShowToast(true);
   };
 
   return (
     <Container className="mt-5">
+      <Toast show={showToast} onClose={() => setShowToast(false)} delay={3000} autohide style={{ position: 'fixed', top: 20, right: 20, zIndex: 9999 }}>
+        <Toast.Header>
+          <strong className="me-auto">Notification</strong>
+        </Toast.Header>
+        <Toast.Body className={`bg-${toastVariant} text-white`}>{toastMessage}</Toast.Body>
+      </Toast>
+
       <Card className="mb-4">
-        <Card.Header as="h5">Lender Dashboard</Card.Header>
+        <Card.Header as="h5">Borrower Dashboard</Card.Header>
         <Card.Body>
           <Card.Text>Connected Account: {account}</Card.Text>
           <Card.Text>Balance: {parseFloat(balance).toFixed(4)} ETH</Card.Text>
@@ -158,42 +177,40 @@ const App = () => {
         <Card.Header as="h5">Create Loan Request</Card.Header>
         <Card.Body>
           <Form onSubmit={createLoanRequest}>
-            <Form.Group className="mb-3">
-              <Form.Label>Loan Amount (ETH)</Form.Label>
-              <Form.Control 
-                type="number" 
-                value={loanAmount} 
-                onChange={(e) => setLoanAmount(e.target.value)}
-                required
-              />
+            <Form.Group as={Row} className="mb-3">
+              <Form.Label column sm={2}>Amount (ETH)</Form.Label>
+              <Col sm={10}>
+                <Form.Control type="number" name="amount" value={formData.amount} onChange={handleInputChange} required />
+              </Col>
             </Form.Group>
-            <Form.Group className="mb-3">
-              <Form.Label>Loan Duration (Days)</Form.Label>
-              <Form.Control 
-                type="number" 
-                value={loanDuration} 
-                onChange={(e) => setLoanDuration(e.target.value)}
-                required
-              />
+            <Form.Group as={Row} className="mb-3">
+              <Form.Label column sm={2}>Duration (days)</Form.Label>
+              <Col sm={10}>
+                <Form.Control type="number" name="duration" value={formData.duration} onChange={handleInputChange} required />
+              </Col>
             </Form.Group>
-            <Button variant="primary" type="submit">
-              Create Loan Request
-            </Button>
+            <Form.Group as={Row} className="mb-3">
+              <Form.Label column sm={2}>Collateral (ETH)</Form.Label>
+              <Col sm={10}>
+                <Form.Control type="number" name="collateral" value={formData.collateral} onChange={handleInputChange} required />
+              </Col>
+            </Form.Group>
+            <Button variant="primary" type="submit">Create Loan Request</Button>
           </Form>
         </Card.Body>
       </Card>
 
-      <Card className="mb-4">
-        <Card.Header as="h5">Your Active Loans</Card.Header>
+      <Card>
+        <Card.Header as="h5">Active Loans</Card.Header>
         <Card.Body>
           <Table responsive>
             <thead>
               <tr>
                 <th>Loan ID</th>
-                <th>Borrower Address</th>
                 <th>Amount</th>
+                <th>Stake</th>
+                <th>End Time</th>
                 <th>Interest Rate</th>
-                <th>Repayment Date</th>
                 <th>Status</th>
                 <th>Action</th>
               </tr>
@@ -202,68 +219,16 @@ const App = () => {
               {activeLoans.map((loan) => (
                 <tr key={loan.loanId}>
                   <td>{loan.loanId}</td>
-                  <td>{loan.borrower}</td>
-                  <td>{ethers.utils.formatEther(loan.loanAmount)} ETH</td>
+                  <td>{loan.loanAmount} ETH</td>
+                  <td>{loan.stake} ETH</td>
+                  <td>{loan.endTime}</td>
                   <td>{loan.interestRate}%</td>
-                  <td>{new Date(loan.endTime * 1000).toLocaleDateString()}</td>
-                  <td>
-                    <Badge bg={
-                      loan.isRepaid ? 'success' : 
-                      Date.now() / 1000 > loan.endTime ? 'danger' : 'primary'
-                    }>
-                      {loan.isRepaid ? 'Repaid' : 
-                       Date.now() / 1000 > loan.endTime ? 'Expired' : 'Active'}
-                    </Badge>
-                  </td>
-                  <td>
-                    <Button 
-                      variant="warning" 
-                      onClick={() => claimRepayment(loan.loanId)}
-                      disabled={loan.isRepaid || Date.now() / 1000 <= loan.endTime}
-                    >
-                      Claim Repayment
-                    </Button>
-                  </td>
+                  <td><Badge bg={loan.state === LoanState.ACTIVE ? 'warning' : (loan.state === LoanState.REPAID ? 'success' : 'danger')}>{loan.state}</Badge></td>
+                  {loan.state === LoanState.ACTIVE && (
+                    <td><Button variant="primary" onClick={() => repayLoan(loan.loanId)}>Repay</Button></td>
+                  )}
                 </tr>
               ))}
-            </tbody>
-          </Table>
-        </Card.Body>
-      </Card>
-
-      <Card>
-        <Card.Header as="h5">Available Loan Proposals</Card.Header>
-        <Card.Body>
-          <Table responsive>
-            <thead>
-              <tr>
-                <th>Proposal ID</th>
-                <th>Borrower Address</th>
-                <th>Requested Amount (ETH)</th>
-                <th>Duration (Days)</th>
-                <th>Stake (ETH)</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-            {loanProposals.map((proposal) => (
-              <tr key={proposal.id}>
-                <td>{proposal.id}</td>
-                <td>{proposal.borrower}</td>
-                <td>{proposal.loanAmount}</td>
-                <td>{proposal.duration}</td>
-                <td>{proposal.stake}</td>
-                <td>
-                  <Button
-                    variant="primary"
-                    onClick={() => handleLendMoney(proposal.id, proposal.loanAmount, 5)}
-                    disabled={!proposal.isActive}
-                  >
-                    Lend
-                  </Button>
-                </td>
-              </tr>
-            ))}
             </tbody>
           </Table>
         </Card.Body>
@@ -272,4 +237,4 @@ const App = () => {
   );
 };
 
-export {App};
+export { App };

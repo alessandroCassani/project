@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Container, Row, Col, Form, Button, Table, Card, Badge, Toast } from 'react-bootstrap';
 import { ethers } from 'ethers';
-import LendingPlatformABI from '../contracts/LendingPlatform.sol/LendingPlatform.json';
+import LendingPlatformABI from '../contracts/LendingPlatform.json';
 
 const LoanState = {
   0: "REPAID",
@@ -125,8 +125,8 @@ const App = () => {
         const loan = await contract.activeLoans(i);
         activeLoansData.push({
           loanId: i,
-          borrower: loan.borrower,
-          lender: loan.lender,
+        borrower: loan.borrower,
+        lender: loan.lender,
           loanAmount: loan.loanAmount,
           duration: loan.duration,
           interestRate: loan.interestRate,
