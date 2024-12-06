@@ -50,12 +50,11 @@ const App = () => {
     if (typeof window.ethereum !== 'undefined') {
       try {
         const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-        setAccount(accounts[0]); // Set the connected account
+        setAccount(accounts[0]);
         const provider = new ethers.providers.Web3Provider(window.ethereum);
         const balance = await provider.getBalance(accounts[0]);
-        setBalance(ethers.utils.formatEther(balance)); // Format balance to ETH
+        setBalance(ethers.utils.formatEther(balance));
 
-        // Listener for account changes
         window.ethereum.on('accountsChanged', async (accounts) => {
           setAccount(accounts[0]);
           const newBalance = await provider.getBalance(accounts[0]);
@@ -100,6 +99,7 @@ const App = () => {
 
     try {
       const tx = await contract.createLoanRequest(amountInWei, durationInDays, { value: collateralInWei });
+      showToastMessage("Richiesta di prestito in elaborazione...", 'info');
       await tx.wait();
       showToastMessage("Loan request created successfully", 'success');
       await updateBalance();
@@ -118,28 +118,22 @@ const App = () => {
     if (!contract || !account) return;
     
     try {
-      const totalLoans = await contract.totalLoans();
-      const activeLoansData = [];
-
-      for (let i = 0; i < totalLoans; i++) {
-        const loan = await contract.activeLoans(i);
-        activeLoansData.push({
-          loanId: i,
-        borrower: loan.borrower,
-        lender: loan.lender,
-          loanAmount: loan.loanAmount,
-          duration: loan.duration,
-          interestRate: loan.interestRate,
-          state: loan.state.toString()
-        });
-      }
-
+      const [loanIds, loans] = await contract.getBorrowerActiveLoans(account);
+      const activeLoansData = loanIds.map((id, index) => ({
+        loanId: id.toNumber(),
+        borrower: loans[index].borrower,
+        lender: loans[index].lender,
+        loanAmount: ethers.utils.formatEther(loans[index].loanAmount),
+        duration: loans[index].duration.toNumber(),
+        interestRate: loans[index].interestRate.toNumber(),
+        state: loans[index].isRepaid ? "REPAID" : "ACTIVE"
+      }));
+  
       setActiveLoans(activeLoansData);
-      console.log("Active loans loaded successfully:", activeLoansData);
-      
+      console.log("Borrower's active loans loaded successfully:", activeLoansData);
     } catch (error) {
-      console.error("Error loading active loans:", error);
-      showToastMessage("Error loading active loans", 'danger');
+      console.error("Error loading borrower's active loans:", error);
+      showToastMessage("Error loading borrower's active loans", 'danger');
     }
   };
 
@@ -218,38 +212,36 @@ const App = () => {
       </Card>
 
       <Card>
-        <Card.Header as="h5">Active Loans</Card.Header>
-        <Card.Body>
-          <Table responsive>
-            <thead>
-              <tr>
-                <th>Loan ID</th>
-                <th>Role</th>
-                <th>Amount</th>
-                <th>Duration (days)</th>
-                <th>Interest Rate</th>
-                <th>Status</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {activeLoans.map((loan) => (
-                <tr key={loan.loanId}>
-                  <td>{loan.loanId}</td>
-                  <td>{loan.borrower === account ? 'Borrower' : 'Lender'}</td>
-                  <td>{loan.loanAmount} ETH</td>
-                  <td>{loan.duration}</td>
-                  <td>{loan.interestRate}%</td>
-                  <td><Badge bg={loan.state === 'ACTIVE' ? 'warning' : 'success'}>{loan.state}</Badge></td>
-                  {loan.borrower === account && loan.state === 'ACTIVE' && (
-                    <td><Button variant="primary" onClick={() => repayLoan(loan.loanId)}>Repay</Button></td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </Table>
-        </Card.Body>
-      </Card>
+  <Card.Header as="h5">Your Active Loans</Card.Header>
+  <Card.Body>
+    <Table responsive>
+      <thead>
+        <tr>
+          <th>Loan ID</th>
+          <th>Amount</th>
+          <th>Duration (days)</th>
+          <th>Interest Rate</th>
+          <th>Status</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {activeLoans.map((loan) => (
+          <tr key={loan.loanId}>
+            <td>{loan.loanId}</td>
+            <td>{loan.loanAmount} ETH</td>
+            <td>{loan.duration}</td>
+            <td>{loan.interestRate}%</td>
+            <td><Badge bg={loan.state === 'ACTIVE' ? 'warning' : 'success'}>{loan.state}</Badge></td>
+            {loan.state === 'ACTIVE' && (
+              <td><Button variant="primary" onClick={() => repayLoan(loan.loanId)}>Repay</Button></td>
+            )}
+          </tr>
+        ))}
+      </tbody>
+    </Table>
+  </Card.Body>
+</Card>
     </Container>
   );
 };

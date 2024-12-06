@@ -559,4 +559,103 @@ describe("LendingPlatform", function () {
       expect(loans[0].isRepaid).to.be.false;
     });
   });
+
+  describe("Get All Active Loans", function () {
+    beforeEach(async function () {
+      // Create multiple loan requests from different borrowers
+      await lendingPlatform.connect(borrower).createLoanRequest(
+        ethers.parseEther("1"),
+        30,
+        { value: ethers.parseEther("2") }
+      );
+      await lendingPlatform.connect(owner).createLoanRequest(
+        ethers.parseEther("0.5"),
+        60,
+        { value: ethers.parseEther("1") }
+      );
+  
+      // Fund the loan requests
+      await lendingPlatform.connect(lender).fundLoanRequest(
+        0,
+        5,
+        { value: ethers.parseEther("1") }
+      );
+      await lendingPlatform.connect(lender).fundLoanRequest(
+        1,
+        7,
+        { value: ethers.parseEther("0.5") }
+      );
+    });
+  
+    it("Should return all active loans", async function () {
+      const [loanIds, loans] = await lendingPlatform.getAllActiveLoans();
+      
+      expect(loanIds.length).to.equal(2);
+      expect(loans.length).to.equal(2);
+      
+      expect(loanIds[0]).to.equal(0);
+      expect(loans[0].borrower).to.equal(borrower.address);
+      expect(loans[0].loanAmount).to.equal(ethers.parseEther("1"));
+      expect(loans[0].interestRate).to.equal(5);
+      
+      expect(loanIds[1]).to.equal(1);
+      expect(loans[1].borrower).to.equal(owner.address);
+      expect(loans[1].loanAmount).to.equal(ethers.parseEther("0.5"));
+      expect(loans[1].interestRate).to.equal(7);
+    });
+  
+    it("Should not return repaid loans", async function () {
+      const interest = (ethers.parseEther("1") * BigInt(5)) / BigInt(100);
+      const repaymentAmount = ethers.parseEther("1") + interest;
+      
+      await lendingPlatform.connect(borrower).repayLoan(
+        0,
+        { value: repaymentAmount }
+      );
+  
+      const [loanIds, loans] = await lendingPlatform.getAllActiveLoans();
+      
+      expect(loanIds.length).to.equal(1);
+      expect(loans.length).to.equal(1);
+      expect(loanIds[0]).to.equal(1);
+      expect(loans[0].borrower).to.equal(owner.address);
+    });
+  
+    it("Should return empty arrays when no active loans", async function () {
+      // Repay all loans
+      const interest1 = (ethers.parseEther("1") * BigInt(5)) / BigInt(100);
+      const repaymentAmount1 = ethers.parseEther("1") + interest1;
+      await lendingPlatform.connect(borrower).repayLoan(
+        0,
+        { value: repaymentAmount1 }
+      );
+  
+      const interest2 = (ethers.parseEther("0.5") * BigInt(7)) / BigInt(100);
+      const repaymentAmount2 = ethers.parseEther("0.5") + interest2;
+      await lendingPlatform.connect(owner).repayLoan(
+        1,
+        { value: repaymentAmount2 }
+      );
+  
+      const [loanIds, loans] = await lendingPlatform.getAllActiveLoans();
+      
+      expect(loanIds.length).to.equal(0);
+      expect(loans.length).to.equal(0);
+    });
+  
+    it("Should not return expired loans", async function () {
+      // Fast forward time past loan duration
+      await network.provider.send("evm_increaseTime", [61 * 24 * 60 * 60]);
+      await network.provider.send("evm_mine");
+  
+      // Liquidate the expired loans
+      await lendingPlatform.connect(owner).liquidateExpiredLoan(0);
+      await lendingPlatform.connect(owner).liquidateExpiredLoan(1);
+  
+      const [loanIds, loans] = await lendingPlatform.getAllActiveLoans();
+      
+      expect(loanIds.length).to.equal(0);
+      expect(loans.length).to.equal(0);
+    });
+  });
 });
