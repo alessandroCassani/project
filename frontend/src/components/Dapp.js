@@ -1,7 +1,7 @@
 import React from "react";
 import { NoWalletDetected } from "./NoWalletDetected";
 import { ConnectWallet } from "./ConnectWallet";
-import { App as LenderInterface } from "./Lender";
+import { Lender as LenderInterface } from './Lender';
 import { App as BorrowerInterface } from "./Borrower"
 
 import { Container, Card, Button, Alert, Nav, Navbar } from 'react-bootstrap';
