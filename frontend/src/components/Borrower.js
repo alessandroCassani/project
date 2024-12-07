@@ -88,14 +88,25 @@ const App = () => {
     if (!contract || !account) return;
     try {
       const [loanIds, loans, requestIds, requests] = await contract.getAllActiveLoans();
-      const activeLoansData = requestIds.map((id, index) => ({
-        loanId: id.toNumber(),
-        borrower: requests[index].borrower,
-        loanAmount: ethers.utils.formatEther(requests[index].loanAmount),
-        duration: requests[index].duration.toNumber(),
-        stake: ethers.utils.formatEther(requests[index].stake),
-        state: requests[index].isActive ? "ACTIVE" : "INACTIVE"
-      }));
+      const activeLoansData = [
+        ...loanIds.map((id, index) => ({
+          loanId: id.toNumber(),
+          borrower: loans[index].borrower,
+          loanAmount: ethers.utils.formatEther(loans[index].loanAmount),
+          endTime: new Date(loans[index].endTime.toNumber() * 1000).toLocaleDateString(),
+          interestRate: loans[index].interestRate.toNumber(),
+          state: "ACTIVE"
+        })),
+        ...requestIds.map((id, index) => ({
+          loanId: id.toNumber(),
+          borrower: requests[index].borrower,
+          loanAmount: ethers.utils.formatEther(requests[index].loanAmount),
+          duration: requests[index].duration.toNumber(),
+          stake: ethers.utils.formatEther(requests[index].stake),
+          state: "PENDING"
+        }))
+      ].filter(loan => loan.borrower.toLowerCase() === account.toLowerCase());
+  
       setActiveLoans(activeLoansData);
     } catch (error) {
       console.error("Error loading loans:", error);
@@ -109,14 +120,16 @@ const App = () => {
       const loan = await contract.activeLoans(loanId);
       const interest = loan.loanAmount.mul(loan.interestRate).div(100);
       const totalDue = loan.loanAmount.add(interest);
+      
       const tx = await contract.repayLoan(loanId, { value: totalDue });
       await tx.wait();
+      
       showToastMessage("Loan repaid successfully", 'success');
       await updateBalance();
       loadActiveLoans();
     } catch (error) {
       console.error("Error repaying loan:", error);
-      showToastMessage("Error repaying loan", 'danger');
+      showToastMessage(error.reason || "Error repaying loan", 'danger');
     }
   };
 
@@ -197,42 +210,47 @@ const App = () => {
       </Card>
 
       <Card>
-        <Card.Header as="h5">Your Active Loans</Card.Header>
+        <Card.Header as="h5" className="d-flex justify-content-between align-items-center">
+         Active Loans
+          <Button variant="outline-primary" onClick={loadActiveLoans}>Refresh Requests</Button>
+        </Card.Header>
         <Card.Body>
-          <Table responsive>
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Amount</th>
-                <th>Duration</th>
-                <th>Stake</th>
-                <th>Status</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {activeLoans.map((loan) => (
-                <tr key={loan.loanId}>
-                  <td>{loan.loanId}</td>
-                  <td>{loan.loanAmount} ETH</td>
-                  <td>{loan.duration} days</td>
-                  <td>{loan.stake} ETH</td>
+        <Table responsive>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Amount</th>
+              <th>Duration/End Date</th>
+              <th>Interest Rate</th>
+              <th>Stake</th>
+              <th>Status</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {activeLoans.map((loan) => (
+              <tr key={loan.loanId}>
+                <td>{loan.loanId}</td>
+                <td>{loan.loanAmount} ETH</td>
+                <td>{loan.state === 'ACTIVE' ? loan.endTime : `${loan.duration} days`}</td>
+                <td>{loan.state === 'ACTIVE' ? `${loan.interestRate}%` : 'N/A'}</td>
+                <td>{loan.stake || 'N/A'} ETH</td>
+                <td>
+                  <Badge bg={loan.state === 'ACTIVE' ? 'warning' : 'info'}>
+                    {loan.state}
+                  </Badge>
+                </td>
+                {loan.state === 'ACTIVE' && (
                   <td>
-                    <Badge bg={loan.state === 'ACTIVE' ? 'warning' : 'success'}>
-                      {loan.state}
-                    </Badge>
+                    <Button variant="primary" onClick={() => repayLoan(loan.loanId)}>
+                      Repay
+                    </Button>
                   </td>
-                  {loan.state === 'ACTIVE' && (
-                    <td>
-                      <Button variant="primary" onClick={() => repayLoan(loan.loanId)}>
-                        Repay
-                      </Button>
-                    </td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </Table>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </Table>
         </Card.Body>
       </Card>
     </Container>

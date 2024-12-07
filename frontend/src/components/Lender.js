@@ -72,49 +72,51 @@ const Lender = () => {
  };
 
  const loadLoanRequests = async () => {
-   if (!contract) return;
-   try {
-     const [, , requestIds, requests] = await contract.getAllActiveLoans();
-     
-     const requestsData = requestIds.map((id, index) => ({
-       requestId: id.toString(),
-       borrower: requests[index].borrower,
-       amount: ethers.utils.formatEther(requests[index].loanAmount),
-       duration: requests[index].duration.toString(),
-       stake: ethers.utils.formatEther(requests[index].stake),
-       isActive: requests[index].isActive
-     }));
-     
-     setLoanRequests(requestsData.filter(req => req.isActive));
-   } catch (error) {
-     console.error("Error loading requests:", error);
-     showToast("Error loading loan requests", 'danger');
-   }
- };
+  if (!contract || !account) return;
+  try {
+    const [, , requestIds, requests] = await contract.getAllActiveLoans();
+    const requestsData = requestIds.map((id, index) => ({
+      requestId: id.toString(),
+      borrower: requests[index].borrower,
+      amount: ethers.utils.formatEther(requests[index].loanAmount),
+      duration: requests[index].duration.toString(),
+      stake: ethers.utils.formatEther(requests[index].stake),
+      isActive: requests[index].isActive
+    }));
+    setLoanRequests(requestsData.filter(req => 
+      req.isActive && req.borrower.toLowerCase() !== account.toLowerCase()
+    ));
+  } catch (error) {
+    console.error("Error loading requests:", error);
+    showToast("Error loading loan requests", 'danger');
+  }
+};
 
- const loadActiveLoans = async () => {
-   if (!contract) return;
-   try {
-     const [loanIds, loans] = await contract.getAllActiveLoans();
-     
-     const activeLoansData = loans.map((loan, index) => ({
-       loanId: loanIds[index].toString(),
-       borrower: loan.borrower,
-       lender: loan.lender,
-       loanAmount: ethers.utils.formatEther(loan.loanAmount),
-       stake: ethers.utils.formatEther(loan.stake),
-       endTime: new Date(Number(loan.endTime) * 1000).toLocaleString(),
-       interestRate: loan.interestRate.toString(),
-       state: loan.isRepaid ? LoanState.REPAID : 
-              (Date.now() > Number(loan.endTime) * 1000 ? LoanState.EXPIRED : LoanState.ACTIVE)
-     }));
+const loadActiveLoans = async () => {
+  if (!contract || !account) return;
+  try {
+    const [loanIds, loans] = await contract.getAllActiveLoans();
 
-     setActiveLoans(activeLoansData.filter(loan => loan.lender === account));
-   } catch (error) {
-     console.error("Error loading active loans:", error);
-     showToast("Error loading active loans", 'danger');
-   }
- };
+    const activeLoansData = loans
+      .map((loan, index) => ({
+        loanId: loanIds[index].toString(),
+        borrower: loan.borrower,
+        lender: loan.lender,
+        loanAmount: ethers.utils.formatEther(loan.loanAmount),
+        stake: ethers.utils.formatEther(loan.stake),
+        endTime: new Date(Number(loan.endTime) * 1000).toLocaleString(),
+        interestRate: loan.interestRate.toString(),
+        state: loan.isRepaid ? LoanState.REPAID : 
+               (Date.now() > Number(loan.endTime) * 1000 ? LoanState.EXPIRED : LoanState.ACTIVE)
+      }))
+      .filter(loan => loan.lender.toLowerCase() === account.toLowerCase());
+
+    setActiveLoans(activeLoansData);
+  } catch (error) {
+    console.error("Error loading active loans:", error);
+    showToast("Error loading active loans", 'danger');
+  }
+};
 
  const handleInterestRateChange = (requestId, value) => {
    setInterestRates(prev => ({
@@ -124,28 +126,35 @@ const Lender = () => {
  };
 
  const fundLoan = async (requestId, amount) => {
-   if (!contract || !interestRates[requestId]) {
-     showToast("Please set an interest rate", 'warning');
-     return;
-   }
+  if (!contract || !interestRates[requestId]) {
+    showToast("Please set an interest rate", 'warning');
+    return;
+  }
 
-   try {
-     const tx = await contract.fundLoanRequest(
-       requestId, 
-       interestRates[requestId],
-       { value: ethers.utils.parseEther(amount) }
-     );
-     showToast("Processing loan funding...", 'info');
-     await tx.wait();
-     showToast("Loan funded successfully", 'success');
-     await updateBalance(account);
-     await loadLoanRequests();
-     await loadActiveLoans();
-   } catch (error) {
-     console.error("Error funding loan:", error);
-     showToast(error.reason || "Error funding loan", 'danger');
-   }
- };
+  const interestRate = interestRates[requestId];
+  if (interestRate > 5) {
+    showToast("Interest rate must be 5% or lower", 'warning');
+    return;
+  }
+
+  try {
+    const amountInWei = ethers.utils.parseEther(amount);
+    const tx = await contract.fundLoanRequest(
+      requestId,
+      interestRate,
+      { value: amountInWei }
+    );
+    showToast("Processing loan funding...", 'info');
+    await tx.wait();
+    showToast("Loan funded successfully", 'success');
+    await updateBalance(account);
+    await loadLoanRequests();
+    await loadActiveLoans();
+  } catch (error) {
+    console.error("Error funding loan:", error);
+    showToast(error.reason || "Error funding loan", 'danger');
+  }
+};
 
  const liquidateExpiredLoan = async (loanId) => {
    if (!contract) return;
@@ -191,48 +200,48 @@ const Lender = () => {
          <Button variant="outline-primary" onClick={loadLoanRequests}>Refresh Requests</Button>
        </Card.Header>
        <Card.Body>
-         <Table responsive>
-           <thead>
-             <tr>
-               <th>Request ID</th>
-               <th>Borrower</th>
-               <th>Amount</th>
-               <th>Duration (days)</th>
-               <th>Stake</th>
-               <th>Interest Rate</th>
-               <th>Action</th>
-             </tr>
-           </thead>
-           <tbody>
-             {loanRequests.map((request) => (
-               <tr key={request.requestId}>
-                 <td>{request.requestId}</td>
-                 <td>{request.borrower}</td>
-                 <td>{request.amount} ETH</td>
-                 <td>{request.duration}</td>
-                 <td>{request.stake} ETH</td>
-                 <td>
-                   <Form.Control 
-                     type="number" 
-                     min="0"
-                     max="100"
-                     placeholder="Interest %" 
-                     value={interestRates[request.requestId] || ''}
-                     onChange={(e) => handleInterestRateChange(request.requestId, e.target.value)}
-                   />
-                 </td>
-                 <td>
-                   <Button 
-                     variant="primary" 
-                     onClick={() => fundLoan(request.requestId, request.amount)}
-                   >
-                     Fund
-                   </Button>
-                 </td>
-               </tr>
-             ))}
-           </tbody>
-         </Table>
+       <Table responsive>
+          <thead>
+            <tr>
+              <th>Request ID</th>
+              <th>Borrower</th>
+              <th>Amount</th>
+              <th>Duration (days)</th>
+              <th>Stake</th>
+              <th>Interest Rate</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loanRequests.map((request) => (
+              <tr key={request.requestId}>
+                <td>{request.requestId}</td>
+                <td>{request.borrower}</td>
+                <td>{request.amount} ETH</td>
+                <td>{request.duration}</td>
+                <td>{request.stake} ETH</td>
+                <td>
+                  <Form.Control
+                    type="number"
+                    min="0"
+                    max="100"
+                    placeholder="Interest %"
+                    value={interestRates[request.requestId] || ''}
+                    onChange={(e) => handleInterestRateChange(request.requestId, e.target.value)}
+                  />
+                </td>
+                <td>
+                  <Button
+                    variant="primary"
+                    onClick={() => fundLoan(request.requestId, request.amount)}
+                  >
+                    Fund
+                  </Button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </Table>
        </Card.Body>
      </Card>
 
