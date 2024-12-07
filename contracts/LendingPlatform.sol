@@ -5,13 +5,21 @@ import "./LoanTypes.sol";
 import "./LoanStorage.sol";
 
 contract LendingPlatform is LoanStorage {
+    uint256 public constant MAX_INTEREST_RATE = 7;
+
     function createLoanRequest(
         uint256 _loanAmount,
-        uint256 _durationInDays
+        uint256 _durationInDays,
+        uint256 _interestRate
     ) external payable {
         require(_loanAmount > 0, "Loan amount must be greater than 0");
         require(_durationInDays > 0, "Duration must be greater than 0");
         require(msg.value >= _loanAmount * 2, "Insufficient collateral");
+        require(
+            _interestRate <= MAX_INTEREST_RATE,
+            "Interest rate exceeds maximum allowed (7%)"
+        );
+        require(_interestRate > 0, "Interest rate must be greater than 0");
 
         // Creating new loan request
         uint256 requestId = getNextRequestId();
@@ -22,12 +30,10 @@ contract LendingPlatform is LoanStorage {
         request.duration = _durationInDays;
         request.isActive = true;
         request.stake = msg.value;
+        request.interestRate = _interestRate; // Store the interest rate
     }
 
-    function fundLoanRequest(
-        uint256 _requestId,
-        uint256 _interestRate
-    ) external payable {
+    function fundLoanRequest(uint256 _requestId) external payable {
         LoanTypes.LoanRequest storage request = loanRequests[_requestId];
 
         require(request.isActive, "Request is not active");
@@ -41,7 +47,7 @@ contract LendingPlatform is LoanStorage {
         loan.loanAmount = request.loanAmount;
         loan.stake = request.stake;
         loan.endTime = block.timestamp + (request.duration * 1 days);
-        loan.interestRate = _interestRate;
+        loan.interestRate = request.interestRate;
 
         request.isActive = false;
 

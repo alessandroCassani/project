@@ -6,8 +6,9 @@ contract LoanTypes {
         address borrower;
         uint256 loanAmount;
         uint256 duration;
-        bool isActive; // flag
+        bool isActive;
         uint256 stake;
+        uint256 interestRate;
     }
 
     struct ActiveLoan {
@@ -17,6 +18,6 @@ contract LoanTypes {
         uint256 stake;
         uint256 endTime;
         uint256 interestRate;
-        bool isRepaid; //flag
+        bool isRepaid;
     }
 }
