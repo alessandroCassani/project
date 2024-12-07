@@ -119,11 +119,19 @@ const App = () => {
     try {
       const loan = await contract.activeLoans(loanId);
       const interest = loan.loanAmount.mul(loan.interestRate).div(100);
-      const totalDue = loan.loanAmount.add(interest);
-      
-      const tx = await contract.repayLoan(loanId, { value: totalDue });
-      await tx.wait();
-      
+      const originalTotalDue = loan.loanAmount.add(interest);
+  
+      const currentEthPrice = await getEthPrice();
+      if (!currentEthPrice) {
+        showToastMessage("Error fetching ETH price, using original repayment amount.", 'warning');
+        const tx = await contract.repayLoan(loanId, { value: originalTotalDue });
+        await tx.wait();
+      } else {
+        const adjustedTotalDue = originalTotalDue.div(ethers.utils.parseEther(currentEthPrice.toString()));
+        const tx = await contract.repayLoan(loanId, { value: adjustedTotalDue });
+        await tx.wait();
+      }
+  
       showToastMessage("Loan repaid successfully", 'success');
       await updateBalance();
       loadActiveLoans();
@@ -137,6 +145,17 @@ const App = () => {
     setToastMessage(message);
     setToastVariant(variant);
     setShowToast(true);
+  };
+
+  const getEthPrice = async () => {
+    try {
+      const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd');
+      const data = await response.json();
+      return data.ethereum.usd;
+    } catch (error) {
+      console.error('Error fetching ETH price:', error);
+      return null;
+    }
   };
 
   return (
