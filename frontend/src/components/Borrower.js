@@ -186,26 +186,49 @@ const App = () => {
   const repayLoan = async (loanId) => {
     if (!contract) return;
     try {
-      // Get loan details and calculate repayment amount
+      // Get loan details and current ETH price
       const loan = await contract.activeLoans(loanId);
-      const interest = loan.loanAmount.mul(loan.interestRate).div(100);
-      const totalDue = loan.loanAmount.add(interest);
-
-      // Send repayment transaction
+      const currentEthPrice = await getEthPrice();
+      
+      if (!currentEthPrice) {
+        showToastMessage("Error fetching ETH price", 'danger');
+        return;
+      }
+  
+      const loanAmountInEth = ethers.utils.formatEther(loan.loanAmount);
+      const loanAmountInUSD = loanAmountInEth * currentEthPrice;
+      
+      // Calculate required ETH based on current price
+      const requiredEthAmount = loanAmountInUSD / currentEthPrice;
+      const requiredEthWei = ethers.utils.parseEther(requiredEthAmount.toString());
+  
+      // Calculate interest
+      const interest = requiredEthWei.mul(loan.interestRate).div(100);
+      const totalDue = requiredEthWei.add(interest);
+  
       const tx = await contract.repayLoan(loanId, {
         value: totalDue,
         gasLimit: ethers.utils.hexlify(1000000)
       });
       
       await tx.wait();
-      
-      // Update UI after successful repayment
       showToastMessage("Loan repaid successfully", 'success');
       await updateBalance();
       await loadActiveLoans();
     } catch (error) {
       console.error("Error repaying loan:", error);
       showToastMessage(error.reason || "Error repaying loan", 'danger');
+    }
+  };
+  
+  const getEthPrice = async () => {
+    try {
+      const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd');
+      const data = await response.json();
+      return data.ethereum.usd;
+    } catch (error) {
+      console.error("Error fetching ETH price:", error);
+      return null;
     }
   };
 
