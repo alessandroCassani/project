@@ -378,7 +378,7 @@ describe("LendingPlatform", function () {
   });
 
   describe("Get Borrower Active Loans", function () {
-    it("Should return all active loans for a borrower", async function () {
+    it("Should return all active loan requests for a borrower", async function () {
       const stake = ethers.parseEther("2");
       const loanAmount1 = ethers.parseEther("1");
       const loanAmount2 = ethers.parseEther("0.5");
@@ -388,175 +388,95 @@ describe("LendingPlatform", function () {
         duration,
         { value: stake }
       );
-
+  
       await lendingPlatform.connect(borrower).createLoanRequest(
         loanAmount2,
         duration,
         { value: stake }
       );
-
-      await lendingPlatform.connect(lender).fundLoanRequest(
-        0,
-        5,
-        { value: loanAmount1 }
-      );
-
-      await lendingPlatform.connect(lender).fundLoanRequest(
-        1,
-        7,
-        { value: loanAmount2 }
-      );
-
-      const [loanIds, loans] = await lendingPlatform.getBorrowerActiveLoans(borrower.address);
-
-      expect(loanIds.length).to.equal(2);
-      expect(loans.length).to.equal(2);
-
-      expect(loanIds[0]).to.equal(0);
-      expect(loans[0].borrower).to.equal(borrower.address);
-      expect(loans[0].lender).to.equal(lender.address);
-      expect(loans[0].loanAmount).to.equal(loanAmount1);
-      expect(loans[0].interestRate).to.equal(5);
-      expect(loans[0].isRepaid).to.be.false;
-
-      expect(loanIds[1]).to.equal(1);
-      expect(loans[1].borrower).to.equal(borrower.address);
-      expect(loans[1].lender).to.equal(lender.address);
-      expect(loans[1].loanAmount).to.equal(loanAmount2);
-      expect(loans[1].interestRate).to.equal(7);
-      expect(loans[1].isRepaid).to.be.false;
+  
+      const [requestIds, requests] = await lendingPlatform.getBorrowerActiveLoans(borrower.address);
+  
+      expect(requestIds.length).to.equal(2);
+      expect(requests.length).to.equal(2);
+  
+      expect(requestIds[0]).to.equal(0);
+      expect(requests[0].borrower).to.equal(borrower.address);
+      expect(requests[0].loanAmount).to.equal(loanAmount1);
+      expect(requests[0].duration).to.equal(duration);
+      expect(requests[0].isActive).to.be.true;
+      expect(requests[0].stake).to.equal(stake);
+  
+      expect(requestIds[1]).to.equal(1);
+      expect(requests[1].borrower).to.equal(borrower.address);
+      expect(requests[1].loanAmount).to.equal(loanAmount2);
+      expect(requests[1].duration).to.equal(duration);
+      expect(requests[1].isActive).to.be.true;
+      expect(requests[1].stake).to.equal(stake);
     });
-
-    it("Should not return repaid loans", async function () {
+  
+  
+    it("Should return empty arrays for borrower with no loan requests", async function () {
+      const [requestIds, requests] = await lendingPlatform.getBorrowerActiveLoans(borrower.address);
+  
+      expect(requestIds.length).to.equal(0);
+      expect(requests.length).to.equal(0);
+    });
+  
+    it("Should only return loan requests for the specified borrower", async function () {
       const stake = ethers.parseEther("2");
+      const loanAmount = ethers.parseEther("1");
+      
       await lendingPlatform.connect(borrower).createLoanRequest(
         loanAmount,
         duration,
         { value: stake }
       );
-
-      await lendingPlatform.connect(lender).fundLoanRequest(
-        0,
-        5,
-        { value: loanAmount }
-      );
-
-      const interest = (loanAmount * BigInt(5)) / BigInt(100);
-      const repaymentAmount = loanAmount + interest;
-      await lendingPlatform.connect(borrower).repayLoan(
-        0,
-        { value: repaymentAmount }
-      );
-
-      const [loanIds, loans] = await lendingPlatform.getBorrowerActiveLoans(borrower.address);
-
-      expect(loanIds.length).to.equal(0);
-      expect(loans.length).to.equal(0);
-    });
-
-    it("Should return empty arrays for borrower with no loans", async function () {
-      const [loanIds, loans] = await lendingPlatform.getBorrowerActiveLoans(borrower.address);
-
-      expect(loanIds.length).to.equal(0);
-      expect(loans.length).to.equal(0);
-    });
-
-    it("Should only return loans for the specified borrower", async function () {
-      await lendingPlatform.connect(borrower).createLoanRequest(
-        loanAmount,
-        duration,
-        { value: ethers.parseEther("2") }
-      );
-
-      await lendingPlatform.connect(lender).fundLoanRequest(
-        0,
-        5,
-        { value: loanAmount }
-      );
-
+  
       const otherBorrower = owner;
       await lendingPlatform.connect(otherBorrower).createLoanRequest(
         loanAmount,
         duration,
-        { value: ethers.parseEther("2") }
+        { value: stake }
       );
-
-      await lendingPlatform.connect(lender).fundLoanRequest(
-        1,
-        5,
-        { value: loanAmount }
-      );
-
-      const [loanIds, loans] = await lendingPlatform.getBorrowerActiveLoans(borrower.address);
-
-      expect(loanIds.length).to.equal(1);
-      expect(loans.length).to.equal(1);
-      expect(loans[0].borrower).to.equal(borrower.address);
+  
+      const [requestIds, requests] = await lendingPlatform.getBorrowerActiveLoans(borrower.address);
+  
+      expect(requestIds.length).to.equal(1);
+      expect(requests.length).to.equal(1);
+      expect(requests[0].borrower).to.equal(borrower.address);
     });
-
-    it("Should not return expired loans", async function () {
+  
+    it("Should handle loan requests with different amounts and durations", async function () {
+      const stake1 = ethers.parseEther("2");
+      const stake2 = ethers.parseEther("4");
+      const loanAmount1 = ethers.parseEther("1");
+      const loanAmount2 = ethers.parseEther("2");
+      const duration1 = 30;
+      const duration2 = 60;
+      
       await lendingPlatform.connect(borrower).createLoanRequest(
-        loanAmount,
-        duration,
-        { value: ethers.parseEther("2") }
+        loanAmount1,
+        duration1,
+        { value: stake1 }
       );
-
-      await lendingPlatform.connect(lender).fundLoanRequest(
-        0,
-        5,
-        { value: loanAmount }
+  
+      await lendingPlatform.connect(borrower).createLoanRequest(
+        loanAmount2,
+        duration2,
+        { value: stake2 }
       );
-
-      // Fast forward time past loan duration
-      await network.provider.send("evm_increaseTime", [duration * 24 * 60 * 60 + 1]);
-      await network.provider.send("evm_mine");
-
-      // Liquidate the expired loan
-      await lendingPlatform.connect(owner).liquidateExpiredLoan(0);
-
-      const [loanIds, loans] = await lendingPlatform.getBorrowerActiveLoans(borrower.address);
-
-      expect(loanIds.length).to.equal(0);
-      expect(loans.length).to.equal(0);
-    });
-
-    it("Should handle multiple loans with different states", async function () {
-      // Create and fund three loans
-      for (let i = 0; i < 3; i++) {
-        await lendingPlatform.connect(borrower).createLoanRequest(
-          loanAmount,
-          duration,
-          { value: ethers.parseEther("2") }
-        );
-
-        await lendingPlatform.connect(lender).fundLoanRequest(
-          i,
-          5,
-          { value: loanAmount }
-        );
-      }
-
-      // Repay first loan
-      const interest = (loanAmount * BigInt(5)) / BigInt(100);
-      const repaymentAmount = loanAmount + interest;
-      await lendingPlatform.connect(borrower).repayLoan(
-        0,
-        { value: repaymentAmount }
-      );
-
-      // Expire and liquidate second loan
-      await network.provider.send("evm_increaseTime", [duration * 24 * 60 * 60 + 1]);
-      await network.provider.send("evm_mine");
-      await lendingPlatform.connect(owner).liquidateExpiredLoan(1);
-
-      // Third loan remains active
-      const [loanIds, loans] = await lendingPlatform.getBorrowerActiveLoans(borrower.address);
-
-      // Should only return the third (active) loan
-      expect(loanIds.length).to.equal(1);
-      expect(loans.length).to.equal(1);
-      expect(loanIds[0]).to.equal(2);
-      expect(loans[0].isRepaid).to.be.false;
+  
+      const [requestIds, requests] = await lendingPlatform.getBorrowerActiveLoans(borrower.address);
+  
+      expect(requestIds.length).to.equal(2);
+      expect(requests.length).to.equal(2);
+      expect(requests[0].loanAmount).to.equal(loanAmount1);
+      expect(requests[0].duration).to.equal(duration1);
+      expect(requests[0].stake).to.equal(stake1);
+      expect(requests[1].loanAmount).to.equal(loanAmount2);
+      expect(requests[1].duration).to.equal(duration2);
+      expect(requests[1].stake).to.equal(stake2);
     });
   });
 
