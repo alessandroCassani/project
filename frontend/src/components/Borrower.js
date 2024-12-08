@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Container, Row, Col, Form, Button, Table, Card, Badge, Toast } from 'react-bootstrap';
 import { ethers } from 'ethers';
 import LendingPlatformABI from '../contracts/LendingPlatform.json';
+import Address from '../contracts/contract-address.json'
 
 const App = () => {
   // State management for form and application data
@@ -38,7 +39,7 @@ const App = () => {
     try {
       const provider = new ethers.providers.Web3Provider(window.ethereum);
       const signer = provider.getSigner();
-      const contractAddress = "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0";
+      const contractAddress = Address.LendingPlatform;
       const contract = new ethers.Contract(contractAddress, LendingPlatformABI.abi, signer);
       setContract(contract);
     } catch (error) {
@@ -151,42 +152,45 @@ const App = () => {
       
       // Process active loans
       const activeLoansData = loanIds.map((id, index) => ({
-        loanId: id.toNumber(),
+        loanId: id.toString(),
         borrower: loans[index].borrower,
         loanAmount: ethers.utils.formatEther(loans[index].loanAmount),
         endTime: new Date(loans[index].endTime.toNumber() * 1000).toLocaleDateString(),
-        interestRate: loans[index].interestRate.toNumber(),
+        interestRate: loans[index].interestRate.toString(),
         stake: ethers.utils.formatEther(loans[index].stake),
+        initialEthPrice: ethers.utils.formatUnits(loans[index].initialEthPrice, 18),
         state: "ACTIVE"
       }));
-
+  
       // Process loan requests
       const requestLoansData = requestIds.map((id, index) => ({
-        loanId: id.toNumber(),
+        loanId: id.toString(),
         borrower: requests[index].borrower,
         loanAmount: ethers.utils.formatEther(requests[index].loanAmount),
-        duration: requests[index].duration.toNumber(),
+        duration: requests[index].duration.toString(),
         stake: ethers.utils.formatEther(requests[index].stake),
-        interestRate: requests[index].interestRate.toNumber(),
+        interestRate: requests[index].interestRate.toString(),
+        initialEthPrice: 'N/A',
         state: "PENDING"
       }));
-
+  
       // Combine and filter for current user's loans
       const combinedLoans = [...activeLoansData, ...requestLoansData]
         .filter(loan => loan.borrower.toLowerCase() === account.toLowerCase());
-
+  
       setActiveLoans(combinedLoans);
     } catch (error) {
       console.error("Error loading loans:", error);
       showToastMessage("Error loading loans", 'danger');
     }
   };
+  
+  
 
   // Repay an active loan
   const repayLoan = async (loanId) => {
     if (!contract) return;
     try {
-      // Get loan details and current ETH price
       const loan = await contract.activeLoans(loanId);
       const currentEthPrice = await getEthPrice();
       
@@ -196,21 +200,26 @@ const App = () => {
       }
   
       const loanAmountInEth = ethers.utils.formatEther(loan.loanAmount);
-      const loanAmountInUSD = loanAmountInEth * currentEthPrice;
+      const loanAmountInUSD = parseFloat(loanAmountInEth) * parseFloat(ethers.utils.formatUnits(loan.initialEthPrice, 18));
+      const interestInUSD = (loanAmountInUSD * loan.interestRate * (Date.now() / 1000 - loan.startTimestamp)) / (365 * 24 * 60 * 60 * 100);
+      const totalDueInUSD = loanAmountInUSD + interestInUSD;
       
-      // Calculate required ETH based on current price
-      const requiredEthAmount = loanAmountInUSD / currentEthPrice;
-      const requiredEthWei = ethers.utils.parseEther(requiredEthAmount.toString());
+      const ethToRepay = totalDueInUSD / currentEthPrice;
   
-      // Calculate interest
-      const interest = requiredEthWei.mul(loan.interestRate).div(100);
-      const totalDue = requiredEthWei.add(interest);
-  
+      console.log("Loan amount in ETH:", loanAmountInEth);
+      console.log("Initial ETH price:", ethers.utils.formatUnits(loan.initialEthPrice, 18));
+      console.log("Current ETH price:", currentEthPrice);
+      console.log("Total due in USD:", totalDueInUSD);
+      console.log("ETH to repay:", ethToRepay);
+
+      const ethToRepayInWei = ethers.utils.parseEther(ethToRepay.toFixed(18)); //problema qui
+      console.log("ETH to repay Wei:", ethToRepayInWei.toString());
+
       const tx = await contract.repayLoan(loanId, {
-        value: totalDue,
-        gasLimit: ethers.utils.hexlify(1000000)
+        value: ethToRepayInWei,
+        gasLimit: ethers.utils.hexlify(1000000),
       });
-      
+  
       await tx.wait();
       showToastMessage("Loan repaid successfully", 'success');
       await updateBalance();
@@ -219,7 +228,10 @@ const App = () => {
       console.error("Error repaying loan:", error);
       showToastMessage(error.reason || "Error repaying loan", 'danger');
     }
-  };
+  };  
+  
+  
+  
   
   const getEthPrice = async () => {
     try {
@@ -347,7 +359,7 @@ const App = () => {
           <Button variant="outline-primary" onClick={loadActiveLoans}>Refresh Requests</Button>
         </Card.Header>
         <Card.Body>
-          <Table responsive>
+        <Table responsive>
             <thead>
               <tr>
                 <th>ID</th>
@@ -355,6 +367,7 @@ const App = () => {
                 <th>Duration/End Date</th>
                 <th>Interest Rate</th>
                 <th>Stake</th>
+                <th>Initial ETH Price</th>
                 <th>Status</th>
                 <th>Action</th>
               </tr>
@@ -367,6 +380,7 @@ const App = () => {
                   <td>{loan.state === 'ACTIVE' ? loan.endTime : `${loan.duration} days`}</td>
                   <td>{loan.interestRate}%</td>
                   <td>{loan.stake || 'N/A'} ETH</td>
+                  <td>{loan.state === 'ACTIVE' ? `$${loan.initialEthPrice}` : 'N/A'}</td>
                   <td>
                     <Badge bg={loan.state === 'ACTIVE' ? 'warning' : 'info'}>
                       {loan.state}

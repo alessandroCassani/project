@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Container, Button, Table, Card, Badge, Toast } from 'react-bootstrap';
 import { ethers } from 'ethers';
 import LendingPlatformABI from '../contracts/LendingPlatform.json';
+import Address from '../contracts/contract-address.json'
 
 const LoanState = { REPAID: "Repaid", ACTIVE: "Active", EXPIRED: "Expired" };
 
@@ -54,7 +55,7 @@ const Lender = () => {
       try {
         const provider = new ethers.providers.Web3Provider(window.ethereum);
         const signer = provider.getSigner();
-        const contractAddress = "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0";
+        const contractAddress = Address.LendingPlatform;
         const contractInstance = new ethers.Contract(contractAddress, LendingPlatformABI.abi, signer);
         setContract(contractInstance);
       } catch (error) {
@@ -101,7 +102,6 @@ const Lender = () => {
     if (!contract || !account) return;
     try {
       const [loanIds, loans] = await contract.getAllActiveLoans();
-
       const activeLoansData = loans
         .map((loan, index) => ({
           loanId: loanIds[index].toString(),
@@ -111,44 +111,60 @@ const Lender = () => {
           stake: ethers.utils.formatEther(loan.stake),
           endTime: new Date(Number(loan.endTime) * 1000).toLocaleString(),
           interestRate: loan.interestRate.toString(),
-          state: loan.isRepaid ? LoanState.REPAID : 
-                 (Date.now() > Number(loan.endTime) * 1000 ? LoanState.EXPIRED : LoanState.ACTIVE)
+          initialEthPrice: ethers.utils.formatUnits(loan.initialEthPrice, 18),
+          state: loan.isRepaid ? LoanState.REPAID : (Date.now() > Number(loan.endTime) * 1000 ? LoanState.EXPIRED : LoanState.ACTIVE)
         }))
         .filter(loan => loan.lender.toLowerCase() === account.toLowerCase());
-
       setActiveLoans(activeLoansData);
     } catch (error) {
       console.error("Error loading active loans:", error);
       showToast("Error loading active loans", 'danger');
     }
   };
+  
 
   const fundLoan = async (requestId, amount) => {
     if (!contract) return;
-  
     try {
       const amountInWei = ethers.utils.parseEther(amount);
+      const currentEthPrice = await getEthPrice();
+      
+      if (!currentEthPrice) {
+        showToast("Error fetching ETH price", 'danger');
+        return;
+      }
+  
       const provider = new ethers.providers.Web3Provider(window.ethereum);
       const nonce = await provider.getTransactionCount(account);
-  
+      
       const tx = await contract.fundLoanRequest(
-        requestId, 
-        { 
-          value: amountInWei,
-          nonce,
-          gasLimit: ethers.utils.hexlify(1000000) 
-        }
+        requestId,
+        ethers.utils.parseUnits(currentEthPrice.toString(), 18),
+        { value: amountInWei, nonce, gasLimit: ethers.utils.hexlify(1000000) }
       );
       
       await tx.wait();
       await updateBalance(account);
       await loadLoanRequests();
       await loadActiveLoans();
+      showToast("Loan funded successfully", 'success');
     } catch (error) {
       console.error("Error funding loan:", error);
       showToast(error.reason || "Error funding loan", 'danger');
     }
   };
+
+  const getEthPrice = async () => {
+    try {
+      const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd');
+      const data = await response.json();
+      return data.ethereum.usd;
+    } catch (error) {
+      console.error("Error fetching ETH price:", error);
+      return null;
+    }
+  };  
+  
 
   // Liquidate an expired loan
   const liquidateExpiredLoan = async (loanId) => {
@@ -195,27 +211,35 @@ const Lender = () => {
           <Button variant="outline-primary" onClick={loadLoanRequests}>Refresh Requests</Button>
         </Card.Header>
         <Card.Body>
-          <Table responsive>
+        <Table responsive>
             <thead>
               <tr>
-                <th>Request ID</th>
+                <th>Loan ID</th>
                 <th>Borrower</th>
                 <th>Amount</th>
-                <th>Duration (days)</th>
                 <th>Stake</th>
+                <th>End Time</th>
                 <th>Interest Rate</th>
+                <th>Initial ETH Price</th>
+                <th>Status</th>
                 <th>Action</th>
               </tr>
             </thead>
             <tbody>
               {loanRequests.map((request) => (
-                <tr key={request.requestId}>
-                  <td>{request.requestId}</td>
+                <tr key={request.loanId}>
+                  <td>{request.loanId}</td>
                   <td>{request.borrower}</td>
-                  <td>{request.amount} ETH</td>
-                  <td>{request.duration}</td>
+                  <td>{request.loanAmount} ETH</td>
                   <td>{request.stake} ETH</td>
+                  <td>{request.endTime}</td>
                   <td>{request.interestRate}%</td>
+                  <td>{request.state === 'ACTIVE' ? `$${request.initialEthPrice}` : 'N/A'}</td>
+                  <td>
+                    <Badge bg={request.state === LoanState.ACTIVE ? 'warning' : (request.state === LoanState.REPAID ? 'success' : 'danger')}>
+                      {request.state}
+                    </Badge>
+                  </td>
                   <td>
                     <Button
                       variant="primary"

@@ -33,7 +33,7 @@ contract LendingPlatform is LoanStorage {
         request.interestRate = _interestRate; // Store the interest rate
     }
 
-    function fundLoanRequest(uint256 _requestId) external payable {
+    function fundLoanRequest(uint256 _requestId, uint256 _initialEthPrice) external payable {
         LoanTypes.LoanRequest storage request = loanRequests[_requestId];
 
         require(request.isActive, "Request is not active");
@@ -46,44 +46,53 @@ contract LendingPlatform is LoanStorage {
         loan.lender = msg.sender;
         loan.loanAmount = request.loanAmount;
         loan.stake = request.stake;
+        loan.startTimestamp = block.timestamp;
         loan.endTime = block.timestamp + (request.duration * 1 days);
         loan.interestRate = request.interestRate;
+        loan.initialEthPrice = _initialEthPrice;
 
         request.isActive = false;
 
         payable(request.borrower).transfer(msg.value);
     }
 
+
     // Borrower repays loan
-    function repayLoan(uint256 _loanId) external payable {
+    function repayLoan(uint256 _loanId, uint256 _repayAmount) external payable {
         LoanTypes.ActiveLoan storage loan = activeLoans[_loanId];
 
         require(msg.sender == loan.borrower, "Only borrower can repay");
         require(!loan.isRepaid, "Loan already repaid");
-
-        uint256 interest = (loan.loanAmount * loan.interestRate) / 100;
-        uint256 totalDue = loan.loanAmount + interest;
-        require(msg.value >= totalDue, "Must send full amount plus interest");
+        require(msg.value >= _repayAmount, "Insufficient ETH sent");
 
         loan.isRepaid = true;
-
+        payable(loan.lender).transfer(_repayAmount);
         payable(loan.borrower).transfer(loan.stake);
-        payable(loan.lender).transfer(totalDue);
-    }
 
-    function checkLoanStatus(
-        uint256 _loanId
-    ) external view returns (string memory) {
-        LoanTypes.ActiveLoan storage loan = activeLoans[_loanId];
-
-        if (loan.isRepaid) {
-            return "Loan repaid";
-        } else if (block.timestamp > loan.endTime) {
-            return "Loan expired";
-        } else {
-            return "Loan active";
+        if (msg.value > _repayAmount) {
+            payable(msg.sender).transfer(msg.value - _repayAmount);
         }
     }
+
+    function checkLoanStatus(uint256 _loanId) external view returns (
+        bool isRepaid,
+        uint256 loanAmount,
+        uint256 startTimestamp,
+        uint256 endTime,
+        uint256 interestRate,
+        uint256 initialEthPrice
+    ) {
+        LoanTypes.ActiveLoan storage loan = activeLoans[_loanId];
+        return (
+            loan.isRepaid,
+            loan.loanAmount,
+            loan.startTimestamp,
+            loan.endTime,
+            loan.interestRate,
+            loan.initialEthPrice
+        );
+    }
+
 
     // Liquidate expired loan
     function liquidateExpiredLoan(uint256 _loanId) external {
@@ -172,4 +181,5 @@ contract LendingPlatform is LoanStorage {
             }
         }
     }
+
 }
