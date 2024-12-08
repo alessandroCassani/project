@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Container, Row, Col, Form, Button, Table, Card, Badge, Toast } from 'react-bootstrap';
 import { ethers } from 'ethers';
 import LendingPlatformABI from '../contracts/LendingPlatform.json';
-import Address from '../contracts/contract-address.json'
+import Address from '../contracts/contract-address.json';
 
 const App = () => {
   // State management for form and application data
@@ -185,9 +185,6 @@ const App = () => {
     }
   };
   
-  
-
-  // Repay an active loan
   const repayLoan = async (loanId) => {
     if (!contract) return;
     try {
@@ -215,22 +212,16 @@ const App = () => {
       const ethToRepayInWei = ethers.utils.parseEther(ethToRepay.toFixed(18)); //problema qui
       console.log("ETH to repay Wei:", ethToRepayInWei.toString());
 
-      const tx = await contract.repayLoan(loanId, {
-        value: ethToRepayInWei,
-        gasLimit: ethers.utils.hexlify(1000000),
-      });
-  
-      await tx.wait();
-      showToastMessage("Loan repaid successfully", 'success');
-      await updateBalance();
-      await loadActiveLoans();
+        // Chiama la funzione del contratto
+        const tx = await contract.repayLoan(loanId, ethToRepayInWei, { value: ethToRepayInWei });
+
+        await tx.wait();
+        showToastMessage("Loan repaid successfully", 'success');
     } catch (error) {
-      console.error("Error repaying loan:", error);
-      showToastMessage(error.reason || "Error repaying loan", 'danger');
+        console.error("Error repaying loan:", error);
+        showToastMessage(error.reason || "Error repaying loan", 'danger');
     }
-  };  
-  
-  
+  };
   
   
   const getEthPrice = async () => {

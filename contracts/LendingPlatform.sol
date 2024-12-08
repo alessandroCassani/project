@@ -63,15 +63,10 @@ contract LendingPlatform is LoanStorage {
 
         require(msg.sender == loan.borrower, "Only borrower can repay");
         require(!loan.isRepaid, "Loan already repaid");
-        require(msg.value >= _repayAmount, "Insufficient ETH sent");
 
         loan.isRepaid = true;
-        payable(loan.lender).transfer(_repayAmount);
-        payable(loan.borrower).transfer(loan.stake);
-
-        if (msg.value > _repayAmount) {
-            payable(msg.sender).transfer(msg.value - _repayAmount);
-        }
+        payable(loan.lender).transfer(msg.value);
+        payable(loan.borrower).transfer(msg.value);
     }
 
     function checkLoanStatus(uint256 _loanId) external view returns (
