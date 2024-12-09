@@ -5,22 +5,10 @@ A decentralized application for Loan management with smart contract development.
 
 ## Initial Setup
 
-Create a new project and initialize:
-
-```bash
-npm init -y
-```
-
 Install Hardhat and required dependencies !Important:
 
 ```bash
 npm install --save-dev hardhat @nomicfoundation/hardhat-toolbox
-```
-
-Create Hardhat project:
-
-```bash
-npx hardhat init
 ```
 
 ## Local Network Setup
