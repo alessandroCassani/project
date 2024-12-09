@@ -7,7 +7,7 @@ import Address from '../contracts/contract-address.json'
 const LoanState = { REPAID: "Repaid", ACTIVE: "Active", EXPIRED: "Expired" };
 
 const Lender = () => {
-  // Core state management
+  // Core application state
   const [account, setAccount] = useState('');
   const [balance, setBalance] = useState('');
   const [contract, setContract] = useState(null);
@@ -15,7 +15,7 @@ const Lender = () => {
   const [activeLoans, setActiveLoans] = useState([]);
   const [toast, setToast] = useState({ show: false, message: '', variant: 'success' });
 
-  // Initialize component
+  // Initialize smart contract 
   useEffect(() => {
     const init = async () => {
       try {
@@ -31,12 +31,15 @@ const Lender = () => {
     init();
   }, []);
 
+  // Connect wallet, set up account listener
   const connectWallet = async () => {
     if (typeof window.ethereum !== 'undefined') {
       try {
         const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
         setAccount(accounts[0]);
         await updateBalance(accounts[0]);
+
+        // Listen for account changes when account changing on metamask
         window.ethereum.on('accountsChanged', async (newAccounts) => {
           setAccount(newAccounts[0]);
           await updateBalance(newAccounts[0]);
@@ -50,6 +53,7 @@ const Lender = () => {
     }
   };
 
+  // Initialize smart contract
   const loadContract = async () => {
     if (typeof window.ethereum !== 'undefined') {
       try {
@@ -65,6 +69,8 @@ const Lender = () => {
     }
   };
 
+
+  // account ETH balance
   const updateBalance = async (address) => {
     if (typeof window.ethereum !== 'undefined') {
       const provider = new ethers.providers.Web3Provider(window.ethereum);
@@ -84,10 +90,11 @@ const Lender = () => {
         amount: ethers.utils.formatEther(requests[index].loanAmount),
         duration: requests[index].duration.toString(),
         stake: ethers.utils.formatEther(requests[index].stake),
-        interestRate: requests[index].interestRate.toString(), // Display borrower's requested rate
+        interestRate: requests[index].interestRate.toString(),
         isActive: requests[index].isActive
       }));
-      // Filter out inactive requests and the lender's own requests
+
+      // Filter inactive requests and lender's own requests
       setLoanRequests(requestsData.filter(req => 
         req.isActive && req.borrower.toLowerCase() !== account.toLowerCase()
       ));
@@ -97,7 +104,7 @@ const Lender = () => {
     }
   };
 
-  // Load loans funded by this lender
+  // Load loans funded by lender
   const loadActiveLoans = async () => {
     if (!contract || !account) return;
     try {
@@ -122,7 +129,7 @@ const Lender = () => {
     }
   };
   
-
+  // Fund selected loan
   const fundLoan = async (requestId, amount) => {
     if (!contract) return;
     try {
@@ -154,6 +161,8 @@ const Lender = () => {
     }
   };
 
+
+  // API to retrieve USD-ETH price
   const getEthPrice = async () => {
     try {
       const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd');
@@ -166,7 +175,7 @@ const Lender = () => {
   };  
   
 
-  // Liquidate an expired loan
+  // Liquidate expired loan
   const liquidateExpiredLoan = async (loanId) => {
     if (!contract) return;
     try {
@@ -182,8 +191,10 @@ const Lender = () => {
     }
   };
 
+  // Toast notifications
   const showToast = (message, variant) => setToast({ show: true, message, variant });
 
+  // Graphics
   return (
     <Container className="mt-5">
       <Toast 

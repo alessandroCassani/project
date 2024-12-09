@@ -5,12 +5,12 @@ import LendingPlatformABI from '../contracts/LendingPlatform.json';
 import Address from '../contracts/contract-address.json';
 
 const App = () => {
-  // State management for form and application data
+  // State management of data
   const [formData, setFormData] = useState({ 
     amount: '', 
     date: '', 
     collateral: '',
-    interestRate: '' // Added interest rate field to form state
+    interestRate: ''
   });
   
   // Core application state
@@ -19,12 +19,12 @@ const App = () => {
   const [contract, setContract] = useState(null);
   const [activeLoans, setActiveLoans] = useState([]);
   
-  // Toast notification state
+  // Toast notification
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [toastVariant, setToastVariant] = useState('success');
 
-  // Initialize the application on component mount
+  // Initialize application
   useEffect(() => {
     const init = async () => {
       await connectWallet();
@@ -34,7 +34,7 @@ const App = () => {
     init();
   }, []);
 
-  // Initialize the smart contract connection
+  // Initialize smart contract 
   const loadContract = async () => {
     try {
       const provider = new ethers.providers.Web3Provider(window.ethereum);
@@ -48,7 +48,7 @@ const App = () => {
     }
   };
 
-  // Connect to MetaMask wallet and set up account change listener
+  // Connect wallet, set up account listener
   const connectWallet = async () => {
     try {
       const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
@@ -57,7 +57,7 @@ const App = () => {
       const balance = await provider.getBalance(accounts[0]);
       setBalance(ethers.utils.formatEther(balance));
       
-      // Listen for account changes
+      // Listen for account changes when account changing on metamask
       window.ethereum.on('accountsChanged', async (accounts) => {
         setAccount(accounts[0]);
         const newBalance = await provider.getBalance(accounts[0]);
@@ -69,18 +69,17 @@ const App = () => {
     }
   };
 
-  // Update the user's ETH balance
+  // account ETH balance
   const updateBalance = async () => {
     const provider = new ethers.providers.Web3Provider(window.ethereum);
     const newBalance = await provider.getBalance(account);
     setBalance(ethers.utils.formatEther(newBalance));
   };
 
-  // Handle form input changes with validation
+  // Handle interest rate validation
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     
-    // Validate interest rate input
     if (name === 'interestRate') {
       const rate = parseFloat(value);
       if (rate > 7) {
@@ -96,13 +95,13 @@ const App = () => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  // Create a new loan request
+  // New loan request
   const createLoanRequest = async (e) => {
     e.preventDefault();
     if (!contract) return;
 
     try {
-      // Convert form values to appropriate formats for smart contract
+      // Convert values to appropriate formats
       const amountInWei = ethers.utils.parseEther(formData.amount);
       const collateralInWei = ethers.utils.parseEther(formData.collateral);
       const durationInDays = Math.ceil((new Date(formData.date) - new Date()) / (1000 * 60 * 60 * 24));
@@ -117,7 +116,7 @@ const App = () => {
       const provider = new ethers.providers.Web3Provider(window.ethereum);
       const nonce = await provider.getTransactionCount(account);
       
-      // Send transaction to create loan request
+      // Send transaction
       const tx = await contract.createLoanRequest(
         amountInWei,
         durationInDays,
@@ -131,11 +130,10 @@ const App = () => {
       
       await tx.wait();
       
-      // Update UI after successful transaction
+      // Update UI
       await updateBalance();
       await loadActiveLoans();
       
-      // Reset form
       setFormData({ amount: '', date: '', collateral: '', interestRate: '' });
       showToastMessage("Loan request created successfully", 'success');
     } catch (error) {
@@ -150,7 +148,7 @@ const App = () => {
     try {
       const [loanIds, loans, requestIds, requests] = await contract.getAllActiveLoans();
       
-      // Process active loans
+      // Active loans
       const activeLoansData = loanIds.map((id, index) => ({
         loanId: id.toString(),
         borrower: loans[index].borrower,
@@ -162,7 +160,7 @@ const App = () => {
         state: "ACTIVE"
       }));
   
-      // Process loan requests
+      // Loan requests
       const requestLoansData = requestIds.map((id, index) => ({
         loanId: id.toString(),
         borrower: requests[index].borrower,
@@ -174,7 +172,7 @@ const App = () => {
         state: "PENDING"
       }));
   
-      // Combine and filter for current user's loans
+      // Filtering by user's loans
       const combinedLoans = [...activeLoansData, ...requestLoansData]
         .filter(loan => loan.borrower.toLowerCase() === account.toLowerCase());
   
@@ -185,6 +183,7 @@ const App = () => {
     }
   };
   
+  // Repay selected loan
   const repayLoan = async (loanId) => {
     if (!contract) return;
     try {
@@ -196,6 +195,7 @@ const App = () => {
         return;
       }
   
+      // Adapt the loan by the price of USD
       const loanAmountInEth = ethers.utils.formatEther(loan.loanAmount);
       const loanAmountInUSD = parseFloat(loanAmountInEth) * parseFloat(ethers.utils.formatUnits(loan.initialEthPrice, 18));
       const interestInUSD = (loanAmountInUSD * loan.interestRate * (Date.now() / 1000 - loan.startTimestamp)) / (365 * 24 * 60 * 60 * 100);
@@ -209,11 +209,11 @@ const App = () => {
       console.log("Total due in USD:", totalDueInUSD);
       console.log("ETH to repay:", ethToRepay);
 
-      const ethToRepayInWei = ethers.utils.parseEther(ethToRepay.toFixed(18)); //problema qui
-      console.log("ETH to repay Wei:", ethToRepayInWei.toString());
+      const ethToRepayInWei = ethers.utils.parseEther(ethToRepay.toFixed(18));
 
-        // Chiama la funzione del contratto
-        const tx = await contract.repayLoan(loanId, ethToRepayInWei, { value: ethToRepayInWei });
+
+      // Smart contract Loan Repay
+      const tx = await contract.repayLoan(loanId, ethToRepayInWei, { value: ethToRepayInWei });
 
         await tx.wait();
         showToastMessage("Loan repaid successfully", 'success');
@@ -224,6 +224,7 @@ const App = () => {
   };
   
   
+  // API to retrieve USD-ETH price
   const getEthPrice = async () => {
     try {
       const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd');
@@ -235,16 +236,17 @@ const App = () => {
     }
   };
 
-  // Show toast notifications
+  // Toast notifications
   const showToastMessage = (message, variant) => {
     setToastMessage(message);
     setToastVariant(variant);
     setShowToast(true);
   };
 
+  // Graphics
   return (
     <Container className="mt-5">
-      {/* Toast Notification */}
+      {/* Here there is toast Notification */}
       <Toast 
         show={showToast} 
         onClose={() => setShowToast(false)} 
@@ -258,7 +260,7 @@ const App = () => {
         <Toast.Body className={`bg-${toastVariant} text-white`}>{toastMessage}</Toast.Body>
       </Toast>
 
-      {/* Account Information */}
+      {/* Here there is account Information */}
       <Card className="mb-4">
         <Card.Header as="h5">Borrower Dashboard</Card.Header>
         <Card.Body>
@@ -267,7 +269,7 @@ const App = () => {
         </Card.Body>
       </Card>
 
-      {/* Loan Request Form */}
+      {/* Here there is loan Request Form */}
       <Card className="mb-4">
         <Card.Header as="h5">Create Loan Request</Card.Header>
         <Card.Body>

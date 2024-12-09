@@ -30,7 +30,7 @@ contract LendingPlatform is LoanStorage {
         request.duration = _durationInDays;
         request.isActive = true;
         request.stake = msg.value;
-        request.interestRate = _interestRate; // Store the interest rate
+        request.interestRate = _interestRate;
     }
 
     function fundLoanRequest(uint256 _requestId, uint256 _initialEthPrice) external payable {
@@ -140,7 +140,6 @@ contract LendingPlatform is LoanStorage {
         uint256 activeCount = 0;
         uint256 requestCount = 0;
 
-        // Count active loans and requests
         for (uint256 i = 0; i < totalLoans; i++) {
             if (!activeLoans[i].isRepaid) {
                 activeCount++;
@@ -152,13 +151,11 @@ contract LendingPlatform is LoanStorage {
             }
         }
 
-        // Initialize arrays
         loanIds = new uint256[](activeCount);
         loans = new LoanTypes.ActiveLoan[](activeCount);
         requestIds = new uint256[](requestCount);
         requests = new LoanTypes.LoanRequest[](requestCount);
 
-        // Fill arrays
         uint256 loanIndex = 0;
         uint256 requestIndex = 0;
         for (uint256 i = 0; i < totalLoans; i++) {

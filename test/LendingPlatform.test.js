@@ -116,14 +116,12 @@ describe("LendingPlatform", function () {
         { value: ethers.parseEther("2") }
       );
 
-      // Fund the request first time
       await lendingPlatform.connect(lender).fundLoanRequest(
         0,
         5,
         { value: loanAmount }
       );
 
-      // Try to fund the same request again
       await expect(
         lendingPlatform.connect(lender).fundLoanRequest(
           0,
@@ -189,7 +187,6 @@ describe("LendingPlatform", function () {
 
   describe("Loan Repayment", function () {
     beforeEach(async function () {
-      // Setup: Create and fund a loan for each test
       await lendingPlatform.connect(borrower).createLoanRequest(
         loanAmount,
         duration,
@@ -229,7 +226,7 @@ describe("LendingPlatform", function () {
     });
 
     it("Should revert if payment amount is insufficient", async function () {
-      const insufficientAmount = loanAmount; // Not including interest
+      const insufficientAmount = loanAmount;
 
       await expect(
         lendingPlatform.connect(borrower).repayLoan(
@@ -243,13 +240,11 @@ describe("LendingPlatform", function () {
       const interest = (loanAmount * BigInt(5)) / BigInt(100);
       const repaymentAmount = loanAmount + interest;
 
-      // First repayment
       await lendingPlatform.connect(borrower).repayLoan(
         0,
         { value: repaymentAmount }
       );
 
-      // Try to repay again
       await expect(
         lendingPlatform.connect(borrower).repayLoan(
           0,
@@ -275,14 +270,12 @@ describe("LendingPlatform", function () {
       const borrowerBalanceAfter = await ethers.provider.getBalance(borrower.address);
       const lenderBalanceAfter = await ethers.provider.getBalance(lender.address);
 
-      // Borrower should receive stake back but pay repayment amount and gas
       const expectedBorrowerChange = ethers.parseEther("2") - repaymentAmount - gasCost;
       expect(borrowerBalanceAfter - borrowerBalanceBefore).to.be.closeTo(
         expectedBorrowerChange,
-        ethers.parseEther("0.0001") // Allow for small rounding differences
+        ethers.parseEther("0.0001")
       );
 
-      // Lender should receive repayment amount
       expect(lenderBalanceAfter - lenderBalanceBefore).to.equal(repaymentAmount);
     });
   });
@@ -363,14 +356,11 @@ describe("LendingPlatform", function () {
     });
 
     it("Should revert if loan is already repaid", async function () {
-      // First expire the loan
       await network.provider.send("evm_increaseTime", [duration * 24 * 60 * 60 + 1]);
       await network.provider.send("evm_mine");
 
-      // Liquidate first time
       await lendingPlatform.connect(owner).liquidateExpiredLoan(0);
 
-      // Try to liquidate again
       await expect(
         lendingPlatform.connect(owner).liquidateExpiredLoan(0)
       ).to.be.revertedWith("Loan is already repaid");
@@ -482,7 +472,6 @@ describe("LendingPlatform", function () {
 
   describe("Get All Active Loans", function () {
     beforeEach(async function () {
-      // Create multiple loan requests from different borrowers
       await lendingPlatform.connect(borrower).createLoanRequest(
         ethers.parseEther("1"),
         30,
@@ -494,7 +483,6 @@ describe("LendingPlatform", function () {
         { value: ethers.parseEther("1") }
       );
   
-      // Fund the loan requests
       await lendingPlatform.connect(lender).fundLoanRequest(
         0,
         5,
@@ -542,7 +530,6 @@ describe("LendingPlatform", function () {
     });
   
     it("Should return empty arrays when no active loans", async function () {
-      // Repay all loans
       const interest1 = (ethers.parseEther("1") * BigInt(5)) / BigInt(100);
       const repaymentAmount1 = ethers.parseEther("1") + interest1;
       await lendingPlatform.connect(borrower).repayLoan(
@@ -564,11 +551,9 @@ describe("LendingPlatform", function () {
     });
   
     it("Should not return expired loans", async function () {
-      // Fast forward time past loan duration
       await network.provider.send("evm_increaseTime", [61 * 24 * 60 * 60]);
       await network.provider.send("evm_mine");
   
-      // Liquidate the expired loans
       await lendingPlatform.connect(owner).liquidateExpiredLoan(0);
       await lendingPlatform.connect(owner).liquidateExpiredLoan(1);
   
