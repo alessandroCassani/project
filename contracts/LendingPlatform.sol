@@ -33,7 +33,10 @@ contract LendingPlatform is LoanStorage {
         request.interestRate = _interestRate;
     }
 
-    function fundLoanRequest(uint256 _requestId, uint256 _initialEthPrice) external payable {
+    function fundLoanRequest(
+        uint256 _requestId,
+        uint256 _initialEthPrice
+    ) external payable {
         LoanTypes.LoanRequest storage request = loanRequests[_requestId];
 
         require(request.isActive, "Request is not active");
@@ -56,7 +59,6 @@ contract LendingPlatform is LoanStorage {
         payable(request.borrower).transfer(msg.value);
     }
 
-
     // Borrower repays loan
     function repayLoan(uint256 _loanId, uint256 _repayAmount) external payable {
         LoanTypes.ActiveLoan storage loan = activeLoans[_loanId];
@@ -66,17 +68,23 @@ contract LendingPlatform is LoanStorage {
 
         loan.isRepaid = true;
         payable(loan.lender).transfer(msg.value);
-        payable(loan.borrower).transfer(msg.value);
+        payable(loan.borrower).transfer(loan.stake);
     }
 
-    function checkLoanStatus(uint256 _loanId) external view returns (
-        bool isRepaid,
-        uint256 loanAmount,
-        uint256 startTimestamp,
-        uint256 endTime,
-        uint256 interestRate,
-        uint256 initialEthPrice
-    ) {
+    function checkLoanStatus(
+        uint256 _loanId
+    )
+        external
+        view
+        returns (
+            bool isRepaid,
+            uint256 loanAmount,
+            uint256 startTimestamp,
+            uint256 endTime,
+            uint256 interestRate,
+            uint256 initialEthPrice
+        )
+    {
         LoanTypes.ActiveLoan storage loan = activeLoans[_loanId];
         return (
             loan.isRepaid,
@@ -87,7 +95,6 @@ contract LendingPlatform is LoanStorage {
             loan.initialEthPrice
         );
     }
-
 
     // Liquidate expired loan
     function liquidateExpiredLoan(uint256 _loanId) external {
@@ -173,5 +180,4 @@ contract LendingPlatform is LoanStorage {
             }
         }
     }
-
 }
