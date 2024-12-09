@@ -118,7 +118,6 @@ export class Dapp extends React.Component {
 
   _initialize(userAddress) {
     this.setState({ selectedAddress: userAddress });
-    // Initialize ethers and fetch data specific to loan management
   }
 
   _dismissNetworkError() {

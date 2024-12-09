@@ -1,60 +1,89 @@
-# DApp Hardhat, React, EthersJS, solidity
 
-Inserire descrizione componenti
+# DApp with Hardhat, React, EthersJS, and Solidity
 
-## Quick start
+A decentralized application for Loan management with smart contract development.
 
-# create package.json
+## Initial Setup
 
+Create a new project and initialize:
+
+```bash
 npm init -y
+```
 
-# Install hardhat and required packages
+Install Hardhat and required dependencies !Important:
 
+```bash
 npm install --save-dev hardhat @nomicfoundation/hardhat-toolbox
+```
 
-# Create Hardhat project
+Create Hardhat project:
 
+```bash
 npx hardhat init
+```
 
-# Start local network for testing
+## Local Network Setup
 
-```sh
+Start the local Hardhat network:
+
+```bash
 npx hardhat node
 ```
 
-Then, on a new terminal, go to the repository's root folder and run this to
-deploy your contract on a new terminal (the hardhat is running in the previous terminal and must not be touched):
+Deploy your contracts (in a new terminal):
 
-```sh
+```bash
 npx hardhat run scripts/deploy.js --network localhost
 ```
 
-# How to test the contrats with hardhat console
+## Network Configuration
 
-```sh
+### Add Local Network to MetaMask
+
+1. Open MetaMask settings, security
+2. Scroll down and click "Add Custom Network"
+3. Enter network details:
+    - **Network Name:** Hardhat
+    - **New RPC URL:** http://127.0.0.1:8545
+    - **Chain ID:** 31337
+    - **Currency Symbol:** ETH
+
+4. **Important:** If you encounter "Transaction failed" errors, remove and re-add the network in MetaMask or "clear activity tab data"
+
+### Import Test Accounts
+
+1. Copy the private keys provided by Hardhat node when started locally.
+2. In MetaMask, click on the account icon.
+3. Select "Import Account".
+4. Paste the private key (copied from console) and confirm.
+
+## Testing and Development
+
+Access Hardhat console for contract testing:
+
+```bash
 npx hardhat console --network localhost
 ```
 
-> Note: this example uses a custom deploy script, consider using `hardhat ignition` -
-> Hardhat builtin deployment system
+## Frontend Init
 
-Connect Metamask to a local network through Settings > Networks > Add Network.
-You might need to delete previously added network from Metamask and re-add it
-every time you start a new network instance. Please do so if you get "Transaction
-#x failed! JSON-RPC error." in Metamask
+Navigate to frontend directory and install dependencies:
 
-Finally, we can run the frontend with:
-
-```sh
+```bash
 cd frontend
 npm install
 npm start
 ```
 
-Open [http://localhost:3000/](http://localhost:3000/) to see your Dapp. You will
-need to have [Metamask](https://metamask.io) installed and listening to
-`localhost 8545`.
+Access DApp at `http://localhost:3000`.
 
-## Acknowledgements and other resources
+## Requirements
 
-This Dapp used the [Hardhat boilerplate project tutorial](https://hardhat.org/tutorial/boilerplate-project). as a starting point. Please refer to the tutorial and original repo for additional informations on how to use Hardhat with React, etherjs and Metamask.
+- MetaMask browser extension
+- Node.js and npm installed
+- Web browser
+
+## Additional Resources
+
+For more detailed information about Hardhat integration with React, EthersJS, and MetaMask, refer to the [official Hardhat documentation](https://hardhat.org).

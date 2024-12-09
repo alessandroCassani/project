@@ -5,13 +5,21 @@ import "./LoanTypes.sol";
 import "./LoanStorage.sol";
 
 contract LendingPlatform is LoanStorage {
+    uint256 public constant MAX_INTEREST_RATE = 7;
+
     function createLoanRequest(
         uint256 _loanAmount,
-        uint256 _durationInDays
+        uint256 _durationInDays,
+        uint256 _interestRate
     ) external payable {
         require(_loanAmount > 0, "Loan amount must be greater than 0");
         require(_durationInDays > 0, "Duration must be greater than 0");
         require(msg.value >= _loanAmount * 2, "Insufficient collateral");
+        require(
+            _interestRate <= MAX_INTEREST_RATE,
+            "Interest rate exceeds maximum allowed (7%)"
+        );
+        require(_interestRate > 0, "Interest rate must be greater than 0");
 
         // Creating new loan request
         uint256 requestId = getNextRequestId();
@@ -22,12 +30,10 @@ contract LendingPlatform is LoanStorage {
         request.duration = _durationInDays;
         request.isActive = true;
         request.stake = msg.value;
+        request.interestRate = _interestRate;
     }
 
-    function fundLoanRequest(
-        uint256 _requestId,
-        uint256 _interestRate
-    ) external payable {
+    function fundLoanRequest(uint256 _requestId, uint256 _initialEthPrice) external payable {
         LoanTypes.LoanRequest storage request = loanRequests[_requestId];
 
         require(request.isActive, "Request is not active");
@@ -40,44 +46,48 @@ contract LendingPlatform is LoanStorage {
         loan.lender = msg.sender;
         loan.loanAmount = request.loanAmount;
         loan.stake = request.stake;
+        loan.startTimestamp = block.timestamp;
         loan.endTime = block.timestamp + (request.duration * 1 days);
-        loan.interestRate = _interestRate;
+        loan.interestRate = request.interestRate;
+        loan.initialEthPrice = _initialEthPrice;
 
         request.isActive = false;
 
         payable(request.borrower).transfer(msg.value);
     }
 
+
     // Borrower repays loan
-    function repayLoan(uint256 _loanId) external payable {
+    function repayLoan(uint256 _loanId, uint256 _repayAmount) external payable {
         LoanTypes.ActiveLoan storage loan = activeLoans[_loanId];
 
         require(msg.sender == loan.borrower, "Only borrower can repay");
         require(!loan.isRepaid, "Loan already repaid");
 
-        uint256 interest = (loan.loanAmount * loan.interestRate) / 100;
-        uint256 totalDue = loan.loanAmount + interest;
-        require(msg.value >= totalDue, "Must send full amount plus interest");
-
         loan.isRepaid = true;
-
-        payable(loan.borrower).transfer(loan.stake);
-        payable(loan.lender).transfer(totalDue);
+        payable(loan.lender).transfer(msg.value);
+        payable(loan.borrower).transfer(msg.value);
     }
 
-    function checkLoanStatus(
-        uint256 _loanId
-    ) external view returns (string memory) {
+    function checkLoanStatus(uint256 _loanId) external view returns (
+        bool isRepaid,
+        uint256 loanAmount,
+        uint256 startTimestamp,
+        uint256 endTime,
+        uint256 interestRate,
+        uint256 initialEthPrice
+    ) {
         LoanTypes.ActiveLoan storage loan = activeLoans[_loanId];
-
-        if (loan.isRepaid) {
-            return "Loan repaid";
-        } else if (block.timestamp > loan.endTime) {
-            return "Loan expired";
-        } else {
-            return "Loan active";
-        }
+        return (
+            loan.isRepaid,
+            loan.loanAmount,
+            loan.startTimestamp,
+            loan.endTime,
+            loan.interestRate,
+            loan.initialEthPrice
+        );
     }
+
 
     // Liquidate expired loan
     function liquidateExpiredLoan(uint256 _loanId) external {
@@ -130,7 +140,6 @@ contract LendingPlatform is LoanStorage {
         uint256 activeCount = 0;
         uint256 requestCount = 0;
 
-        // Count active loans and requests
         for (uint256 i = 0; i < totalLoans; i++) {
             if (!activeLoans[i].isRepaid) {
                 activeCount++;
@@ -142,13 +151,11 @@ contract LendingPlatform is LoanStorage {
             }
         }
 
-        // Initialize arrays
         loanIds = new uint256[](activeCount);
         loans = new LoanTypes.ActiveLoan[](activeCount);
         requestIds = new uint256[](requestCount);
         requests = new LoanTypes.LoanRequest[](requestCount);
 
-        // Fill arrays
         uint256 loanIndex = 0;
         uint256 requestIndex = 0;
         for (uint256 i = 0; i < totalLoans; i++) {
@@ -166,4 +173,5 @@ contract LendingPlatform is LoanStorage {
             }
         }
     }
+
 }

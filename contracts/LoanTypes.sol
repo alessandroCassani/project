@@ -6,17 +6,20 @@ contract LoanTypes {
         address borrower;
         uint256 loanAmount;
         uint256 duration;
-        bool isActive; // flag
+        bool isActive;
         uint256 stake;
+        uint256 interestRate;
     }
 
     struct ActiveLoan {
         address borrower;
         address lender;
         uint256 loanAmount;
+        uint256 startTimestamp;
         uint256 stake;
         uint256 endTime;
         uint256 interestRate;
-        bool isRepaid; //flag
+        bool isRepaid;
+        uint256 initialEthPrice; // Aggiungi questo campo
     }
 }
