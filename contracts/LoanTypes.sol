@@ -20,6 +20,6 @@ contract LoanTypes {
         uint256 endTime;
         uint256 interestRate;
         bool isRepaid;
-        uint256 initialEthPrice; // Aggiungi questo campo
+        uint256 initialEthPrice;
     }
 }

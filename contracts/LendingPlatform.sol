@@ -60,7 +60,10 @@ contract LendingPlatform is LoanStorage {
     }
 
     // Borrower repays loan
-    function repayLoan(uint256 _loanId, uint256 _repayAmount) external payable {
+    function repayLoan(
+        uint256 _loanId,
+        uint256 /*_repayAmount*/
+    ) external payable {
         LoanTypes.ActiveLoan storage loan = activeLoans[_loanId];
 
         require(msg.sender == loan.borrower, "Only borrower can repay");
