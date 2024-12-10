@@ -122,7 +122,7 @@ const Lender = () => {
           loanId: loanIds[index].toString(),
           borrower: loan.borrower,
           lender: loan.lender,
-          loanAmount: ethers.utils.formatEther(loan.loanAmount),
+          amount: ethers.utils.formatEther(loan.loanAmount),
           stake: ethers.utils.formatEther(loan.stake),
           endTime: new Date(Number(loan.endTime) * 1000).toLocaleString(),
           interestRate: loan.interestRate.toString(),
@@ -254,7 +254,7 @@ const Lender = () => {
                 <tr key={request.requestId}>
                   <td>{request.requestId}</td>
                   <td>{request.borrower}</td>
-                  <td>{request.loanAmount} ETH</td>
+                  <td>{request.amount} ETH</td>
                   <td>{request.stake} ETH</td>
                   <td>{request.endTime}</td>
                   <td>{request.interestRate}%</td>
@@ -303,7 +303,7 @@ const Lender = () => {
                 <tr key={loan.loanId}>
                   <td>{loan.loanId}</td>
                   <td>{loan.borrower}</td>
-                  <td>{loan.loanAmount} ETH</td>
+                  <td>{loan.amount} ETH</td>
                   <td>{loan.stake} ETH</td>
                   <td>{loan.endTime}</td>
                   <td>{loan.interestRate}%</td>

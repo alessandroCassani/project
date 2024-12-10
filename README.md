@@ -37,7 +37,7 @@ npx hardhat run scripts/deploy.js --network localhost
     - **Chain ID:** 31337
     - **Currency Symbol:** ETH
 
-4. **Important:** If you encounter "Transaction failed" errors, remove and re-add the network in MetaMask or "clear activity tab data"
+4. **Important:** If you encounter "Transaction failed" errors, reboot the browser, remove and re-add the network in MetaMask or "clear activity tab data" and then re-run "npm start"
 
 ### Import Test Accounts
 
