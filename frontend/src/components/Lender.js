@@ -91,6 +91,7 @@ const Lender = () => {
   const loadLoanRequests = async () => {
     if (!contract || !account) return;
     try {
+      const today = new Date();
       const [, , requestIds, requests] = await contract.getAllActiveLoans();
       const requestsData = requestIds.map((id, index) => ({
         requestId: id.toString(),
@@ -242,7 +243,7 @@ const Lender = () => {
                 <th>Borrower</th>
                 <th>Amount</th>
                 <th>Stake</th>
-                <th>End Time</th>
+                <th>Duration</th>
                 <th>Interest Rate</th>
                 <th>Initial ETH Price</th>
                 <th>Status</th>
@@ -256,7 +257,7 @@ const Lender = () => {
                   <td>{request.borrower}</td>
                   <td>{request.amount} ETH</td>
                   <td>{request.stake} ETH</td>
-                  <td>{request.endTime}</td>
+                  <td>{request.duration} days</td>
                   <td>{request.interestRate}%</td>
                   <td>{request.isActive === 'ACTIVE' ? `$${request.initialEthPrice}` : 'N/A'}</td>
                   <td>

@@ -104,7 +104,7 @@ const App = () => {
       // Convert values to appropriate formats
       const amountInWei = ethers.utils.parseEther(formData.amount);
       const collateralInWei = ethers.utils.parseEther(formData.collateral);
-      const durationInDays = Math.ceil((new Date(formData.date) - new Date()) / (1000 * 60 * 60 * 24));
+      const durationInDays = Number(formData.duration);
       const interestRate = Math.floor(Number(formData.interestRate));
 
       // Validate loan duration
@@ -134,7 +134,7 @@ const App = () => {
       await updateBalance();
       await loadActiveLoans();
       
-      setFormData({ amount: '', date: '', collateral: '', interestRate: '' });
+      setFormData({ amount: '', duration: '', collateral: '', interestRate: '' });
       showToastMessage("Loan request created successfully", 'success');
     } catch (error) {
       console.error("Error:", error);
@@ -318,14 +318,15 @@ const App = () => {
             </Form.Group>
 
             <Form.Group as={Row} className="mb-3">
-              <Form.Label column sm={2}>Repayment Date</Form.Label>
+              <Form.Label column sm={2}>Duration</Form.Label>
               <Col sm={10}>
                 <Form.Control 
-                  type="date" 
-                  name="date" 
-                  value={formData.date} 
+                  type="number"
+                  name="duration" 
+                  value={formData.duration} 
                   onChange={handleInputChange} 
                   required 
+                  placeholder="Enter duration in days"
                 />
               </Col>
             </Form.Group>
@@ -365,7 +366,7 @@ const App = () => {
               <tr>
                 <th>ID</th>
                 <th>Amount</th>
-                <th>Duration/End Date</th>
+                <th>Duration</th>
                 <th>Interest Rate</th>
                 <th>Stake</th>
                 <th>Initial ETH Price</th>
