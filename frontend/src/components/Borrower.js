@@ -323,7 +323,7 @@ const App = () => {
                 <Form.Control 
                   type="number"
                   name="duration" 
-                  value={formData.duration} 
+                  value={formData.duration || ""}
                   onChange={handleInputChange} 
                   required 
                   placeholder="Enter duration in days"
