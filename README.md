@@ -8,7 +8,7 @@ A decentralized application for Loan management with smart contract development.
 Install Hardhat and required dependencies !Important:
 
 ```bash
-npm install --save-dev hardhat @nomicfoundation/hardhat-toolbox
+npm install --legacy-peer-deps
 ```
 
 ## Local Network Setup
@@ -52,6 +52,12 @@ Access Hardhat console for contract testing:
 
 ```bash
 npx hardhat console --network localhost
+```
+
+Testing:
+
+```bash
+npx hardhat test
 ```
 
 ## Frontend Init
