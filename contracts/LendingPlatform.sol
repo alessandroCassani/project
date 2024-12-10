@@ -62,7 +62,7 @@ contract LendingPlatform is LoanStorage {
     // Borrower repays loan
     function repayLoan(
         uint256 _loanId,
-        uint256 /*_repayAmount*/
+        uint256 _repayAmount
     ) external payable {
         LoanTypes.ActiveLoan storage loan = activeLoans[_loanId];
 
@@ -70,7 +70,7 @@ contract LendingPlatform is LoanStorage {
         require(!loan.isRepaid, "Loan already repaid");
 
         loan.isRepaid = true;
-        payable(loan.lender).transfer(msg.value);
+        payable(loan.lender).transfer(_repayAmount);
         payable(loan.borrower).transfer(loan.stake);
     }
 

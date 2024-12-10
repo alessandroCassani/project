@@ -44,6 +44,10 @@ const Lender = () => {
           setAccount(newAccounts[0]);
           await updateBalance(newAccounts[0]);
         });
+  
+        //Update UI
+        await loadLoanRequests();
+        await loadActiveLoans();
       } catch (error) {
         console.error("Error connecting wallet:", error);
         showToast("Error connecting to wallet", 'danger');
@@ -62,6 +66,10 @@ const Lender = () => {
         const contractAddress = Address.LendingPlatform;
         const contractInstance = new ethers.Contract(contractAddress, LendingPlatformABI.abi, signer);
         setContract(contractInstance);
+
+        //Update UI
+        await loadLoanRequests();
+        await loadActiveLoans();
       } catch (error) {
         console.error("Error loading contract:", error);
         showToast("Error loading contract", 'danger');
@@ -151,9 +159,11 @@ const Lender = () => {
       );
       
       await tx.wait();
-      await updateBalance(account);
+
+      //Update UI
       await loadLoanRequests();
       await loadActiveLoans();
+      await updateBalance(account);
       showToast("Loan funded successfully", 'success');
     } catch (error) {
       console.error("Error funding loan:", error);
@@ -183,8 +193,11 @@ const Lender = () => {
       showToast("Processing liquidation...", 'info');
       await tx.wait();
       showToast("Loan liquidated successfully", 'success');
-      await updateBalance(account);
+      
+      //Update UI
+      await loadLoanRequests();
       await loadActiveLoans();
+      await updateBalance(account);
     } catch (error) {
       console.error("Error liquidating loan:", error);
       showToast(error.reason || "Error liquidating loan", 'danger');
@@ -238,17 +251,17 @@ const Lender = () => {
             </thead>
             <tbody>
               {loanRequests.map((request) => (
-                <tr key={request.loanId}>
-                  <td>{request.loanId}</td>
+                <tr key={request.requestId}>
+                  <td>{request.requestId}</td>
                   <td>{request.borrower}</td>
                   <td>{request.loanAmount} ETH</td>
                   <td>{request.stake} ETH</td>
                   <td>{request.endTime}</td>
                   <td>{request.interestRate}%</td>
-                  <td>{request.state === 'ACTIVE' ? `$${request.initialEthPrice}` : 'N/A'}</td>
+                  <td>{request.isActive === 'ACTIVE' ? `$${request.initialEthPrice}` : 'N/A'}</td>
                   <td>
-                    <Badge bg={request.state === LoanState.ACTIVE ? 'warning' : (request.state === LoanState.REPAID ? 'success' : 'danger')}>
-                      {request.state}
+                    <Badge bg='success'>
+                      ACTIVE
                     </Badge>
                   </td>
                   <td>

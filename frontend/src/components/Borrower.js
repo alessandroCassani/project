@@ -215,11 +215,19 @@ const App = () => {
       // Smart contract Loan Repay
       const tx = await contract.repayLoan(loanId, ethToRepayInWei, { value: ethToRepayInWei });
 
-        await tx.wait();
-        showToastMessage("Loan repaid successfully", 'success');
+      await tx.wait();
+      showToastMessage("Loan repaid successfully", 'success');
+
+      // Update UI
+      await updateBalance();
+      await loadActiveLoans();
     } catch (error) {
         console.error("Error repaying loan:", error);
         showToastMessage(error.reason || "Error repaying loan", 'danger');
+
+        // Update UI
+        await updateBalance();
+        await loadActiveLoans();
     }
   };
   
